@@ -1,12 +1,17 @@
-import OpenAI from 'openai';
-import { zodTextFormat } from 'openai/helpers/zod';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
+import { getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
-const openai = new OpenAI(); // Ensure OPENAI_API_KEY is set
+type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
 
 // NEW Zod schema for LLM output: Expecting the name of one of the user's categories
+export interface CategoryChoice {
+  chosenCategoryName: string;
+  summary: string;
+  reasoning: string;
+}
+
 const CategoryChoiceSchema = z.object({
   chosenCategoryName: z.string(),
   summary: z
@@ -19,7 +24,7 @@ const CategoryChoiceSchema = z.object({
     .describe(
       'Short explanation of why this category was chosen based on the content and users work/goals. Keep it very short and concise. Max 20 words.'
     ),
-});
+}) satisfies z.ZodType<CategoryChoice>;
 
 function _buildOpenAICategoryChoicePromptInput(
   userProjectsAndGoals: string,
@@ -129,24 +134,43 @@ export async function getOpenAICategoryChoice(
   );
 
   try {
-    const response = await openai.responses.parse({
-      // changing this to gpt-4o-mini will cause the "car Instagram profile" test to fail lol
-      model: 'gpt-4o-2024-08-06',
+    let finishReason: FinishReason | undefined;
+    let rawFinishReason: string | undefined;
+
+    const result = await generateText({
+      model: getCategorizationModel(),
       temperature: 0, // Deterministic output
-      input: promptInput,
-      text: {
-        format: zodTextFormat(CategoryChoiceSchema, 'category_choice'),
+      messages: promptInput,
+      output: Output.object({
+        schema: CategoryChoiceSchema,
+        name: 'category_choice',
+        description: "Chosen category + short summary + short reasoning. Don't invent facts.",
+      }),
+      onFinish: ({ finishReason: fr, rawFinishReason: rfr }) => {
+        finishReason = fr;
+        rawFinishReason = rfr;
       },
     });
 
-    if (!response.output_parsed || 'refusal' in response.output_parsed) {
-      console.warn('OpenAI response issue or refusal selecting category:', response.output_parsed);
+    if (finishReason && finishReason !== 'stop') {
+      console.warn(
+        `[LLM] category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
+      );
       return null;
     }
 
-    return response.output_parsed;
+    const parsed = CategoryChoiceSchema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn(
+        `[LLM] category_choice schema mismatch model="${getCategorizationModelId()}":`,
+        parsed.error.flatten()
+      );
+      return null;
+    }
+
+    return parsed.data;
   } catch (error) {
-    console.error('Error getting OpenAI category choice:', error);
+    console.error('Error getting LLM category choice:', error);
     return null;
   }
 }
@@ -180,15 +204,15 @@ BROWSER: ${activityDetails.browser || ''}
   ];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-08-06',
-      messages: prompt as ChatCompletionMessageParam[],
-      max_tokens: 50,
+    const { text } = await generateText({
+      model: getCategorizationModel(),
+      messages: prompt,
+      maxOutputTokens: 50,
       temperature: 0.3,
     });
-    return response.choices[0]?.message?.content?.trim() || null;
+    return text.trim() || null;
   } catch (error) {
-    console.error('Error getting OpenAI summary for block:', error);
+    console.error('Error getting LLM summary for block:', error);
     return null;
   }
 }
@@ -207,13 +231,13 @@ export async function isTitleInformative(title: string): Promise<boolean> {
   ];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-08-06',
-      messages: prompt as ChatCompletionMessageParam[],
-      max_tokens: 3,
+    const { text } = await generateText({
+      model: getCategorizationModel(),
+      messages: prompt,
+      maxOutputTokens: 3,
       temperature: 0,
     });
-    const answer = response.choices[0]?.message?.content?.trim().toLowerCase();
+    const answer = text.trim().toLowerCase();
     const result = answer?.startsWith('yes') ?? false;
     return result;
   } catch (error) {
@@ -235,13 +259,13 @@ export async function generateActivitySummary(activityData: any): Promise<string
   ];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-08-06',
-      messages: prompt as ChatCompletionMessageParam[],
-      max_tokens: 50,
+    const { text } = await generateText({
+      model: getCategorizationModel(),
+      messages: prompt,
+      maxOutputTokens: 50,
       temperature: 0.3,
     });
-    const generatedTitle = response.choices[0]?.message?.content?.trim() || '';
+    const generatedTitle = text.trim();
     return generatedTitle;
   } catch (error) {
     return '';
@@ -249,7 +273,7 @@ export async function generateActivitySummary(activityData: any): Promise<string
 }
 
 /**
- * Suggest a single emoji for a category using OpenAI.
+ * Suggest a single emoji for a category using an LLM.
  * @param name The category name
  * @param description The category description (optional)
  * @returns The suggested emoji as a string, or null if failed
@@ -269,13 +293,13 @@ export async function getEmojiForCategory(
     },
   ];
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-08-06',
+    const { text } = await generateText({
+      model: getCategorizationModel(),
       messages: prompt,
-      max_tokens: 10, // Increased max_tokens to accommodate more complex emojis
+      maxOutputTokens: 10, // Increased to accommodate more complex emojis
       temperature: 0,
     });
-    const emoji = response.choices[0]?.message?.content?.trim() || null;
+    const emoji = text.trim() || null;
     // More robust validation: check if it's a single emoji character or sequence
     // This regex broadly matches various unicode emoji patterns.
     const emojiRegex =

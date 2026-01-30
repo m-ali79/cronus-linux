@@ -14,7 +14,7 @@ const activeWindowEventInputSchema = z.object({
   windowId: z.number().optional(),
   ownerName: z.string(),
   type: z.enum(['window', 'browser', 'system']),
-  browser: z.enum(['chrome', 'safari', 'arc']).optional().nullable(),
+  browser: z.enum(['chrome', 'safari', 'arc', 'firefox', 'brave', 'helium']).optional().nullable(),
   title: z.string(),
   url: z.string().optional().nullable(),
   content: z.string().optional().nullable(),
@@ -31,11 +31,12 @@ export const activeWindowEventsRouter = router({
     // Destructure relevant details from input for categorization
     const { windowId, ownerName, type, browser, title, url, content, timestamp, screenshotS3Url } =
       input;
-    const activityDetails = { ownerName, type, browser, title, url, content };
+    // durationMs isn't known at ingestion-time; the categorizer only needs context.
+    const activityDetails = { ownerName, type, browser, title, url, content, durationMs: 0 };
 
     // TODO: bring back informative title
-    // We sometimes send 20-40+ simultaneous activeWindowEvents.create calls so this can leads to too many concurrent openai calls
-    // With 30 creates × 2-3 OpenAI calls each = 60-90 concurrent OpenAI API calls, plus database operations
+    // We sometimes send 20-40+ simultaneous activeWindowEvents.create calls so this can lead to too many concurrent LLM calls
+    // With 30 creates × 2-3 LLM calls each = 60-90 concurrent LLM API calls, plus database operations
     // We should move this to a cron job or similar that runs only if a better title is required from EventSegment.tsx
     // DO NOT REMOVE THIS CODE
     // let generatedTitle: string | undefined = undefined;

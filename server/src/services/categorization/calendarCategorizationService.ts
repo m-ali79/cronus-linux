@@ -1,12 +1,12 @@
-import OpenAI from 'openai';
-import { zodTextFormat } from 'openai/helpers/zod';
+import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
 import { UserModel } from '../../models/user';
 import type { CalendarEvent } from '../suggestions/suggestionGenerationService';
+import { getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
-const openai = new OpenAI();
+type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
 
 export interface CategorizationResult {
   categoryId: string | null;
@@ -18,19 +18,19 @@ const CalendarCategoryChoiceSchema = z.object({
   chosenCategoryName: z.string(),
   reasoning: z
     .string()
-    .describe(
-      'Brief explanation of why this category fits the calendar event. Max 15 words.'
-    ),
+    .describe('Brief explanation of why this category fits the calendar event. Max 15 words.'),
 });
 
 function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   let content = calendarEvent.description || '';
-  
+
   if (calendarEvent.attendees && calendarEvent.attendees.length > 1) {
-    const attendeeEmails = calendarEvent.attendees.map(a => a.email || a.displayName || 'Unknown').filter(Boolean);
+    const attendeeEmails = calendarEvent.attendees
+      .map((a) => a.email || a.displayName || 'Unknown')
+      .filter(Boolean);
     content += `\nAttendees: ${calendarEvent.attendees.length} people (${attendeeEmails.join(', ')})`;
   }
-  
+
   return content;
 }
 
@@ -86,23 +86,43 @@ Respond with the category name and brief reasoning.`,
   ];
 
   try {
-    const response = await openai.responses.parse({
-      model: 'gpt-4o-2024-08-06',
+    let finishReason: FinishReason | undefined;
+    let rawFinishReason: string | undefined;
+
+    const result = await generateText({
+      model: getCategorizationModel(),
       temperature: 0,
-      input: promptInput,
-      text: {
-        format: zodTextFormat(CalendarCategoryChoiceSchema, 'calendar_category_choice'),
+      messages: promptInput,
+      output: Output.object({
+        schema: CalendarCategoryChoiceSchema,
+        name: 'calendar_category_choice',
+        description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
+      }),
+      onFinish: ({ finishReason: fr, rawFinishReason: rfr }) => {
+        finishReason = fr;
+        rawFinishReason = rfr;
       },
     });
 
-    if (!response.output_parsed || 'refusal' in response.output_parsed) {
-      console.warn('OpenAI response issue or refusal selecting calendar category:', response.output_parsed);
+    if (finishReason && finishReason !== 'stop') {
+      console.warn(
+        `[LLM] calendar_category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
+      );
       return null;
     }
 
-    return response.output_parsed;
+    const parsed = CalendarCategoryChoiceSchema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn(
+        `[LLM] calendar_category_choice schema mismatch model="${getCategorizationModelId()}":`,
+        parsed.error.flatten()
+      );
+      return null;
+    }
+
+    return parsed.data;
   } catch (error) {
-    console.error('Error getting OpenAI calendar category choice:', error);
+    console.error('Error getting LLM calendar category choice:', error);
     return null;
   }
 }
