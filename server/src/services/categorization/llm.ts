@@ -1,9 +1,7 @@
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
-import { getCategorizationModel, getCategorizationModelId } from './llmProvider';
-
-type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
 // NEW Zod schema for LLM output: Expecting the name of one of the user's categories
 export interface CategoryChoice {
@@ -26,7 +24,7 @@ const CategoryChoiceSchema = z.object({
     ),
 }) satisfies z.ZodType<CategoryChoice>;
 
-function _buildOpenAICategoryChoicePromptInput(
+function _buildLLMCategoryChoicePromptInput(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[],
   activityDetails: Pick<
@@ -118,7 +116,7 @@ Respond with the category name and your reasoning.
 }
 
 // TODO: could add Retry Logic with Consistency Check
-export async function getOpenAICategoryChoice(
+export async function getLLMCategoryChoice(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[], // Pass only name and description for the prompt
   activityDetails: Pick<
@@ -127,16 +125,13 @@ export async function getOpenAICategoryChoice(
   >
 ): Promise<z.infer<typeof CategoryChoiceSchema> | null> {
   // Returns the chosen category NAME or null if error/no choice
-  const promptInput = _buildOpenAICategoryChoicePromptInput(
+  const promptInput = _buildLLMCategoryChoicePromptInput(
     userProjectsAndGoals,
     userCategories,
     activityDetails
   );
 
   try {
-    let finishReason: FinishReason | undefined;
-    let rawFinishReason: string | undefined;
-
     const result = await generateText({
       model: getCategorizationModel(),
       temperature: 0, // Deterministic output
@@ -146,11 +141,10 @@ export async function getOpenAICategoryChoice(
         name: 'category_choice',
         description: "Chosen category + short summary + short reasoning. Don't invent facts.",
       }),
-      onFinish: ({ finishReason: fr, rawFinishReason: rfr }) => {
-        finishReason = fr;
-        rawFinishReason = rfr;
-      },
     });
+
+    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
+    const rawFinishReason: string | undefined = result.rawFinishReason;
 
     if (finishReason && finishReason !== 'stop') {
       console.warn(
@@ -177,13 +171,13 @@ export async function getOpenAICategoryChoice(
 
 // fallback for title
 
-export async function getOpenAISummaryForBlock(
+export async function getLLMSummaryForBlock(
   activityDetails: Pick<
     ActiveWindowDetails,
     'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
   >
 ): Promise<string | null> {
-  // You can use a similar prompt structure as getOpenAICategoryChoice, but focused on summarization
+  // You can use a similar prompt structure as getLLMCategoryChoice, but focused on summarization
   const prompt = [
     {
       role: 'system' as const,
@@ -241,6 +235,10 @@ export async function isTitleInformative(title: string): Promise<boolean> {
     const result = answer?.startsWith('yes') ?? false;
     return result;
   } catch (error) {
+    console.debug(
+      `[LLM] isTitleInformative failed model="${getCategorizationModelId()}" title="${title}"`,
+      error
+    );
     return false;
   }
 }
@@ -268,6 +266,15 @@ export async function generateActivitySummary(activityData: any): Promise<string
     const generatedTitle = text.trim();
     return generatedTitle;
   } catch (error) {
+    console.error(
+      `[LLM] generateActivitySummary failed model="${getCategorizationModelId()}"`,
+      {
+        ownerName: activityData?.ownerName,
+        title: activityData?.title,
+        type: activityData?.type,
+      },
+      error
+    );
     return '';
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { getOpenAICategorySuggestion } from './categoryGeneration';
+import { getLLMCategorySuggestion } from './categoryGeneration';
 
-describe('getOpenAICategorySuggestion', () => {
+describe('getLLMCategorySuggestion', () => {
   const testCases = [
     {
       name: 'CPA and financial advisor',
@@ -21,7 +21,7 @@ describe('getOpenAICategorySuggestion', () => {
   for (const tc of testCases) {
     test(`should generate relevant categories for: ${tc.name}`, async () => {
       // Act
-      const result = await getOpenAICategorySuggestion(tc.goals);
+      const result = await getLLMCategorySuggestion(tc.goals);
 
       // Log for manual inspection
       console.log(`--- Test Case: ${tc.name} ---`);

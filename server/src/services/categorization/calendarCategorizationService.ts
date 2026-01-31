@@ -4,9 +4,7 @@ import { Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
 import { UserModel } from '../../models/user';
 import type { CalendarEvent } from '../suggestions/suggestionGenerationService';
-import { getCategorizationModel, getCategorizationModelId } from './llmProvider';
-
-type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
 export interface CategorizationResult {
   categoryId: string | null;
@@ -31,7 +29,7 @@ function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   return content;
 }
 
-async function getOpenAISuggestionCategoryChoice(
+async function getLLMCalendarCategoryChoice(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[],
   calendarEvent: CalendarEvent
@@ -83,9 +81,6 @@ Respond with the category name and brief reasoning.`,
   ];
 
   try {
-    let finishReason: FinishReason | undefined;
-    let rawFinishReason: string | undefined;
-
     const result = await generateText({
       model: getCategorizationModel(),
       temperature: 0,
@@ -95,11 +90,10 @@ Respond with the category name and brief reasoning.`,
         name: 'calendar_category_choice',
         description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
       }),
-      onFinish: ({ finishReason: fr, rawFinishReason: rfr }) => {
-        finishReason = fr;
-        rawFinishReason = rfr;
-      },
     });
+
+    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
+    const rawFinishReason: string | undefined = result.rawFinishReason;
 
     if (finishReason && finishReason !== 'stop') {
       console.warn(
@@ -152,7 +146,7 @@ export async function categorizeCalendarActivity(
     description: c.description,
   }));
 
-  const choice = await getOpenAISuggestionCategoryChoice(
+  const choice = await getLLMCalendarCategoryChoice(
     userProjectsAndGoals,
     categoryNamesForLLM,
     calendarEvent

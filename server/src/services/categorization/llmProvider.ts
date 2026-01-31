@@ -7,9 +7,16 @@ import { google } from '@ai-sdk/google';
  * - Provides a single place to change default model/provider behavior
  */
 
+export type FinishReason =
+  | 'stop'
+  | 'length'
+  | 'content-filter'
+  | 'tool-calls'
+  | 'error'
+  | 'other';
+
 const DEFAULT_CATEGORIZATION_MODEL_ID = 'gemini-2.5-flash-lite';
 const MODEL_ID_ENV_VAR = 'CATEGORIZATION_MODEL_ID';
-
 let cachedModel: ReturnType<typeof google> | null = null;
 
 export function getCategorizationModelId(): string {

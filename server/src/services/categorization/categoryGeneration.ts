@@ -1,8 +1,6 @@
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
-import { getCategorizationModel, getCategorizationModelId } from './llmProvider';
-
-type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
 export const SuggestedCategorySchema = z.object({
   name: z.string(),
@@ -16,7 +14,7 @@ export const SuggestedCategoriesSchema = z.object({
   categories: z.array(SuggestedCategorySchema),
 });
 
-function _buildOpenAICategorySuggestionPromptInput(userProjectsAndGoals: string) {
+function _buildLLMCategorySuggestionPromptInput(userProjectsAndGoals: string) {
   return [
     {
       role: 'system' as const,
@@ -66,14 +64,11 @@ Generate a list of 3-5 personalized categories based on the user's goals.
   ];
 }
 
-export async function getOpenAICategorySuggestion(
+export async function getLLMCategorySuggestion(
   userProjectsAndGoals: string
 ): Promise<z.infer<typeof SuggestedCategoriesSchema> | null> {
-  const promptInput = _buildOpenAICategorySuggestionPromptInput(userProjectsAndGoals);
+  const promptInput = _buildLLMCategorySuggestionPromptInput(userProjectsAndGoals);
   try {
-    let finishReason: FinishReason | undefined;
-    let rawFinishReason: string | undefined;
-
     const result = await generateText({
       model: getCategorizationModel(),
       temperature: 0,
@@ -83,11 +78,10 @@ export async function getOpenAICategorySuggestion(
         name: 'suggested_categories',
         description: '3-5 personalized categories + emoji/color/isProductive.',
       }),
-      onFinish: ({ finishReason: fr, rawFinishReason: rfr }) => {
-        finishReason = fr;
-        rawFinishReason = rfr;
-      },
     });
+
+    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
+    const rawFinishReason: string | undefined = result.rawFinishReason;
 
     if (finishReason && finishReason !== 'stop') {
       console.warn(
