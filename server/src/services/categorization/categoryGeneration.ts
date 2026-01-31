@@ -66,6 +66,12 @@ Generate a list of 3-5 personalized categories based on the user's goals.
   ];
 }
 
+/**
+ * Generate 3–5 personalized category suggestions based on the user's projects and goals.
+ *
+ * @param userProjectsAndGoals - Text describing the user's projects and goals used to prompt the LLM
+ * @returns An object matching `SuggestedCategoriesSchema` containing the suggested categories; the returned list will include standardized "Distraction" and "Friends & Social" categories appended to the LLM-generated categories. Returns `null` if the LLM response is invalid, finished non‑stop, or an error occurred.
+ */
 export async function getOpenAICategorySuggestion(
   userProjectsAndGoals: string
 ): Promise<z.infer<typeof SuggestedCategoriesSchema> | null> {

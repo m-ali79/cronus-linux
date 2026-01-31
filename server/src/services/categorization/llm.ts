@@ -26,6 +26,18 @@ const CategoryChoiceSchema = z.object({
     ),
 }) satisfies z.ZodType<CategoryChoice>;
 
+/**
+ * Build the system+user message pair used to prompt the categorization LLM for choosing the best user category for an activity.
+ *
+ * The returned messages instruct the model to prioritize activity CONTENT and PURPOSE when selecting a category and provide
+ * the user's projects/goals, category list, and a human-readable summary of the activity. The function truncates URLs to 150
+ * characters and page content to 7000 characters when present.
+ *
+ * @param userProjectsAndGoals - A textual summary of the user's current projects and goals (may be empty or 'Not set').
+ * @param userCategories - The user's categories (each with `name` and optional `description`) to choose from.
+ * @param activityDetails - Key details about the activity: application owner, window title, url, page content, type, and browser.
+ * @returns An array of two messages formatted for an LLM: the first is a `system` message with high-level instructions, and the second is a `user` message containing the projects/goals, category list, activity details, examples, and a TASK prompt.
+ */
 function _buildOpenAICategoryChoicePromptInput(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[],
@@ -117,7 +129,14 @@ Respond with the category name and your reasoning.
   ];
 }
 
-// TODO: could add Retry Logic with Consistency Check
+/**
+ * Selects the best-fitting user category for a given activity and returns the model's chosen category, a short summary, and brief reasoning.
+ *
+ * @param userProjectsAndGoals - A short description of the user's projects and goals to guide categorization.
+ * @param userCategories - Array of the user's categories; each item must include `name` and optional `description`.
+ * @param activityDetails - Activity/window details (ownerName, title, url, content, type, browser) used to determine the category.
+ * @returns The chosen category object containing `chosenCategoryName`, `summary`, and `reasoning`, or `null` if the LLM fails to produce a valid result.
+ */
 export async function getOpenAICategoryChoice(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[], // Pass only name and description for the prompt
@@ -175,7 +194,14 @@ export async function getOpenAICategoryChoice(
   }
 }
 
-// fallback for title
+/**
+ * Generate a concise, one-line summary describing what the user was likely doing during an activity block.
+ *
+ * Uses the activity's app/owner, window title, URL, content, type, and browser to produce a short descriptive summary.
+ *
+ * @param activityDetails - Object containing `ownerName`, `title`, `url`, `content`, `type`, and `browser` used to build the summary
+ * @returns The trimmed one-line summary as a `string`, or `null` if no summary could be produced or an error occurred
+ */
 
 export async function getOpenAISummaryForBlock(
   activityDetails: Pick<
@@ -217,6 +243,12 @@ BROWSER: ${activityDetails.browser || ''}
   }
 }
 
+/**
+ * Determine whether a window or activity title is informative and specific about the user's action.
+ *
+ * @param title - The window or activity title to evaluate
+ * @returns `true` if the title is informative and specific, `false` otherwise
+ */
 export async function isTitleInformative(title: string): Promise<boolean> {
   const prompt = [
     {
@@ -245,6 +277,15 @@ export async function isTitleInformative(title: string): Promise<boolean> {
   }
 }
 
+/**
+ * Generate a concise 5–8 word title summarizing an activity block.
+ *
+ * Uses the provided activity data (app, window title, context, and any available content)
+ * to produce a short, descriptive title that represents what the user was doing during that block.
+ *
+ * @param activityData - Raw activity information (app, window title, URL, content, browser, etc.) used to create the summary
+ * @returns A short descriptive title (about 5–8 words) representing the activity, or an empty string if generation fails
+ */
 export async function generateActivitySummary(activityData: any): Promise<string> {
   const prompt = [
     {
@@ -273,10 +314,11 @@ export async function generateActivitySummary(activityData: any): Promise<string
 }
 
 /**
- * Suggest a single emoji for a category using an LLM.
- * @param name The category name
- * @param description The category description (optional)
- * @returns The suggested emoji as a string, or null if failed
+ * Suggests a single emoji that best represents a category.
+ *
+ * @param name - The category name to represent
+ * @param description - Optional category description to provide additional context
+ * @returns The suggested emoji as a string, or `null` if the model did not produce a valid emoji
  */
 export async function getEmojiForCategory(
   name: string,

@@ -21,6 +21,17 @@ const CalendarCategoryChoiceSchema = z.object({
     .describe('Brief explanation of why this category fits the calendar event. Max 15 words.'),
 });
 
+/**
+ * Build a plain-text representation of a calendar event suitable for LLM prompts.
+ *
+ * Includes the event's description (if any). If the event has more than one attendee,
+ * appends a line "Attendees: N people (email1, displayName2, Unknown, ...)" with the total
+ * attendee count and a comma-separated list of each attendee's email or display name,
+ * using "Unknown" when neither is available.
+ *
+ * @param calendarEvent - The calendar event to format
+ * @returns The assembled event content string
+ */
 function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   let content = calendarEvent.description || '';
 
@@ -34,6 +45,14 @@ function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   return content;
 }
 
+/**
+ * Requests an LLM to pick the best-fitting user category for a calendar event and provide brief reasoning.
+ *
+ * @param userProjectsAndGoals - Free-text summary of the user's projects and goals to provide context for categorization
+ * @param userCategories - Array of the user's categories (name and optional description) to choose from
+ * @param calendarEvent - The calendar event to categorize
+ * @returns The parsed choice object (`chosenCategoryName` and `reasoning`) if the LLM returned a valid match according to the schema; `null` if the model finished abnormally, the output failed schema validation, or an error occurred
+ */
 async function getOpenAISuggestionCategoryChoice(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[],
@@ -127,6 +146,13 @@ Respond with the category name and brief reasoning.`,
   }
 }
 
+/**
+ * Determine the best-matching user category for a calendar event using an LLM and return the categorization.
+ *
+ * @param userId - ID of the user whose categories should be considered
+ * @param calendarEvent - Calendar event to categorize
+ * @returns An object with `categoryId` set to the matched category's ID or `null` if none was matched or available, `categoryReasoning` containing the LLM's brief reasoning or `null`, and `llmSummary` (currently always `null`)
+ */
 export async function categorizeCalendarActivity(
   userId: string,
   calendarEvent: CalendarEvent
