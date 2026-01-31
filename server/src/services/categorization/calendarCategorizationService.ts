@@ -25,10 +25,7 @@ function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   let content = calendarEvent.description || '';
 
   if (calendarEvent.attendees && calendarEvent.attendees.length > 1) {
-    const attendeeEmails = calendarEvent.attendees
-      .map((a) => a.email || a.displayName || 'Unknown')
-      .filter(Boolean);
-    content += `\nAttendees: ${calendarEvent.attendees.length} people (${attendeeEmails.join(', ')})`;
+    content += `\nAttendees: ${calendarEvent.attendees.length} people`;
   }
 
   return content;
