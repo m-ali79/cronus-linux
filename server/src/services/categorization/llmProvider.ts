@@ -23,8 +23,17 @@ export function getCategorizationModelId(): string {
   return process.env[MODEL_ID_ENV_VAR] || DEFAULT_CATEGORIZATION_MODEL_ID;
 }
 
-export function getCategorizationModel() {
+function requireGoogleGenerativeAiApiKey(): void {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    throw new Error(
+      'Missing required env var: GOOGLE_GENERATIVE_AI_API_KEY. Set it in your environment (or `server/.env`) before using categorization.'
+    );
+  }
+}
+
+export function getCategorizationModel(): ReturnType<typeof google> {
   if (!cachedModel) {
+    requireGoogleGenerativeAiApiKey();
     cachedModel = google(getCategorizationModelId());
   }
   return cachedModel;
