@@ -23,6 +23,17 @@ export interface PermissionInfo {
   description: string
 }
 
+// Linux dependency info type
+export interface LinuxDependencyInfo {
+  type: number
+  name: string
+  installed: boolean
+  required: boolean
+  version?: string
+  purpose: string
+  installCommand: string
+}
+
 // Custom APIs for renderer
 const api = {
   onAuthCodeReceived: (callback: (code: string) => void) => {
@@ -48,6 +59,7 @@ const api = {
     ipcRenderer.send('show-notification', options)
   },
   getEnvVariables: () => ipcRenderer.invoke('get-env-vars'),
+  fetchAuthCode: (): Promise<string | null> => ipcRenderer.invoke('fetch-auth-code'),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
   onDisplayRecategorizePage: (callback: (activity: ActivityToRecategorize) => void) => {
@@ -98,7 +110,14 @@ const api = {
   // ) => ipcRenderer.invoke('set-sentry-user', userData)
 
   // Add these two methods for quit confirmation
-  confirmQuit: () => ipcRenderer.invoke('confirm-quit')
+  confirmQuit: () => ipcRenderer.invoke('confirm-quit'),
+
+  // Platform detection
+  getPlatform: (): Promise<string> => ipcRenderer.invoke('get-platform'),
+
+  // Linux-specific methods
+  getLinuxDependencies: (): Promise<LinuxDependencyInfo[] | null> =>
+    ipcRenderer.invoke('get-linux-dependencies')
 }
 
 export interface ActivityToRecategorize {
