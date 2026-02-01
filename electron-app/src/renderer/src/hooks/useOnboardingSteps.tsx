@@ -137,7 +137,7 @@ export function useOnboardingSteps({
       onCategoriesComplete,
       onNext,
       onAiCategoriesLoadingChange,
-      onLinuxDepsInstalled
+      handleLinuxDepsInstalled
     ]
   )
 
