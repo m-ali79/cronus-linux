@@ -28,6 +28,13 @@ const MAX_OCR_TEXT_LENGTH = 2000
 // Per-folder write queue to prevent concurrent metadata.json RMW races.
 const metadataWriteQueueByFolder = new Map<string, Promise<void>>()
 
+function formatLocalDateYYYYMMDD(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function enqueueFolderWrite(folderPath: string, op: () => Promise<void>): Promise<void> {
   const previous = metadataWriteQueueByFolder.get(folderPath) ?? Promise.resolve()
 
@@ -241,7 +248,7 @@ export class ScreenshotManager {
     const now = new Date()
 
     // Date folder: YYYY-MM-DD
-    const dateFolder = now.toISOString().split('T')[0]
+    const dateFolder = formatLocalDateYYYYMMDD(now)
 
     // Time: HH-MM-SS
     const time = now.toTimeString().split(' ')[0].replace(/:/g, '-')
@@ -354,7 +361,7 @@ export class ScreenshotManager {
   async cleanupOldScreenshots(keepDays: number): Promise<number> {
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - keepDays)
-    const cutoffString = cutoffDate.toISOString().split('T')[0]
+    const cutoffString = formatLocalDateYYYYMMDD(cutoffDate)
 
     const dates = await this.getAvailableDates()
     let deletedCount = 0
