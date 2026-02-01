@@ -128,7 +128,7 @@ describe('Multi-Purpose Apps Categorization', () => {
     });
   });
 
-  describe('categorizeActivity (end-to-end with REAL OpenAI calls)', () => {
+  describe('categorizeActivity (end-to-end with REAL LLM calls)', () => {
     const appName = 'Beeper Desktop';
     const mockUser = {
       _id: mockUserId,

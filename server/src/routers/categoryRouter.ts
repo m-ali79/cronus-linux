@@ -5,7 +5,7 @@ import { CategoryModel } from '../models/category';
 import { getEmojiForCategory } from '../services/categorization/llm';
 
 import { safeVerifyToken } from '../lib/authUtils';
-import { getOpenAICategorySuggestion } from '../services/categorization/categoryGeneration';
+import { getLLMCategorySuggestion } from '../services/categorization/categoryGeneration';
 import { publicProcedure, router } from '../trpc';
 const objectIdToStringSchema = z
   .custom<Types.ObjectId | string>((val) => Types.ObjectId.isValid(val as any))
@@ -213,7 +213,7 @@ export const categoryRouter = router({
       safeVerifyToken(input.token);
       const { goals } = input;
 
-      const suggestedCategories = await getOpenAICategorySuggestion(goals);
+      const suggestedCategories = await getLLMCategorySuggestion(goals);
 
       return suggestedCategories;
     }),

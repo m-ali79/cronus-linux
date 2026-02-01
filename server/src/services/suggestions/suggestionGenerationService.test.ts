@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:t
 import { Types } from 'mongoose';
 import { CalendarEvent, generateSuggestionsForUser } from './suggestionGenerationService';
 
-// Note: These tests perform live OpenAI API calls for calendar-specific categorization.
-// Ensure OPENAI_API_KEY is set in your environment.
+// Note: These tests perform live LLM API calls for calendar-specific categorization.
+// Ensure GOOGLE_GENERATIVE_AI_API_KEY is set in your environment.
 
-// Mock dependencies (except categorization service which uses real OpenAI)
+// Mock dependencies (except categorization service which uses real LLM calls)
 const mockActiveWindowEventModel = {
   find: jest.fn(),
 };
@@ -83,7 +83,7 @@ describe('generateSuggestionsForUser', () => {
       },
     ];
 
-    // Mock user and categories for live OpenAI call
+    // Mock user and categories for live LLM call
     const mockUser = {
       userProjectsAndGoals: 'Stay healthy and work on my fitness goals',
     };
@@ -214,7 +214,7 @@ describe('generateSuggestionsForUser', () => {
       },
     ];
 
-    // Mock user and categories for live OpenAI call
+    // Mock user and categories for live LLM call
     const mockUser = {
       userProjectsAndGoals: 'Stay healthy and work on my development team projects',
     };
@@ -278,7 +278,7 @@ describe('generateSuggestionsForUser', () => {
       },
     ];
 
-    // Mock user and categories for live OpenAI call
+    // Mock user and categories for live LLM call
     const mockUser = {
       userProjectsAndGoals: 'I want to maintain good social relationships and work on my projects',
     };
