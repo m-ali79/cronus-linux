@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { User } from 'shared/types'
+import type { Category, User } from 'shared/types'
 import { AccessibilityStep } from '../components/Onboarding/AccessibilityStep'
 import { CompleteStep } from '../components/Onboarding/CompleteStep'
 import { LinuxDependenciesStep } from '../components/Onboarding/LinuxDependenciesStep'
@@ -23,7 +23,7 @@ interface UseOnboardingStepsProps {
   referralSource: string
   setReferralSource: (source: string) => void
   onGoalsComplete: (goals: string) => void
-  onCategoriesComplete: (categories: any[]) => void
+  onCategoriesComplete: (categories: Category[]) => void
   onNext: () => void
   onAiCategoriesLoadingChange: (loading: boolean) => void
   onLinuxDepsInstalled?: () => void
