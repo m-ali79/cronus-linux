@@ -77,3 +77,22 @@ export interface ActivityEventSuggestion {
   categoryColor?: string;
   categoryName?: string;
 }
+
+// Mirrors `electron-app/src/native-modules/native-linux/types.ts` (LinuxDependencyType)
+export enum DependencyType {
+  Hyprland = 0,
+  Grim = 1,
+  Tesseract = 2,
+  DBus = 3,
+  BrowserDebug = 4
+}
+
+export interface LinuxDependency {
+  type: DependencyType;
+  name: string;
+  installed: boolean;
+  required: boolean;
+  version?: string;
+  purpose: string;
+  installCommand: string;
+}

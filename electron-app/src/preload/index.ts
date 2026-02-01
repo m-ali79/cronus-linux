@@ -1,6 +1,6 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
+import type { ActiveWindowDetails } from 'shared/types'
 import { UpdateStatus } from '../shared/update'
 
 // Permission types and status enums (match the native layer)

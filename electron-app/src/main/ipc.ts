@@ -2,7 +2,7 @@ import { is } from '@electron-toolkit/utils'
 import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
 import fs from 'fs/promises'
 import { join } from 'path'
-import { Category } from 'shared/dist/types'
+import type { Category } from 'shared/types'
 import icon from '../../resources/icon.png?asset'
 import { logMainToFile } from './logging'
 import { getAllDependencies, getNativeWindows, initNativeModule } from './nativeModule'
@@ -439,8 +439,11 @@ export async function registerIpcHandlers(
   })
 
   ipcMain.handle('get-linux-dependencies', async () => {
+    if (process.platform !== 'linux') {
+      return null
+    }
     const getAllDeps = getAllDependencies()
-    if (process.platform !== 'linux' || !getAllDeps) {
+    if (!getAllDeps) {
       return null
     }
     try {

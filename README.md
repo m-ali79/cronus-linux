@@ -2,7 +2,7 @@
 
 **Understand where your time went and reduce distractions.**
 
-![Cronus in action](./nextjs-client/public/action.gif)
+![Cronus in action](./electron-app/resources/action.gif)
 
 A modern AI-powered time tracking and productivity application.
 

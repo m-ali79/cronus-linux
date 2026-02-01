@@ -1,6 +1,6 @@
 import { PlusCircle } from 'lucide-react'
 import { ComparableCategory } from 'shared/categories'
-import { Category } from 'shared/dist/types'
+import type { Category } from 'shared/types'
 import { Button } from '../ui/button'
 import { CategoryItemDisplay } from './CategoryItemDisplay'
 

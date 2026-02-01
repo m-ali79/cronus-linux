@@ -2,11 +2,13 @@ import { RefreshCw } from 'lucide-react'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
+import { usePlatform } from '../hooks/usePlatform'
 import { CategoryManagementSettings } from './Settings/CategoryManagementSettings'
 import { DisableUsageAnalyticsSettings } from './Settings/DisableUsageAnalyticsSettings'
 import { DistractionSoundSettings } from './Settings/DistractionSoundSettings'
 import GoalInputForm from './Settings/GoalInputForm'
 import { GoogleCalendarSettings } from './Settings/GoogleCalendarSettings'
+import { LinuxDependenciesStatus } from './Settings/LinuxDependenciesStatus'
 import { ManualUpdateSettings } from './Settings/ManualUpdateSettings'
 import { MultiPurposeAppsSettings } from './Settings/MultiPurposeAppsSettings'
 import PauseTrackingSettings from './Settings/PauseTrackingSettings'
@@ -70,6 +72,7 @@ export const SettingsPage = memo(function SettingsPage({
 }: SettingsPageProps) {
   const { user, logout } = useAuth()
   const { focusOn, setFocusOn } = useSettings()
+  const { isLinux, isLoading } = usePlatform()
   const [showPermissions, setShowPermissions] = useState(false)
 
   useEffect(() => {
@@ -86,8 +89,6 @@ export const SettingsPage = memo(function SettingsPage({
   const handleShowPermissions = useCallback(() => {
     setShowPermissions((v) => !v)
   }, [])
-
-  console.log('SettingsPage re-rendered')
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 p-2 pt-0 pb-4">
@@ -107,7 +108,7 @@ export const SettingsPage = memo(function SettingsPage({
         <DisableUsageAnalyticsSettings />
         <LogOutButtonSection user={user} logout={logout} onResetOnboarding={onResetOnboarding} />
         <AppInformation onShowPermissions={handleShowPermissions} />
-        {showPermissions && <PermissionsStatus />}
+        {showPermissions && !isLoading && (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
       </div>
     </div>
   )
