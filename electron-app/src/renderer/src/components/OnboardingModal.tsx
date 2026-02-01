@@ -76,6 +76,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     isScreenRecordingStep,
     isWelcomeStep,
     isPosthogOptInStep,
+    isLinuxDependenciesStep,
+    linuxDepsInstalled,
     handleNext: handleStepNext,
     handleBack,
     handleSkipToEnd
@@ -94,7 +96,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     onGoalsComplete: handleGoalsCompleteAndNext,
     onCategoriesComplete: handleCategoriesCompleteAndNext,
     onNext: () => {}, // Will be updated after completion hook
-    onAiCategoriesLoadingChange: setIsAiCategoriesLoading
+    onAiCategoriesLoadingChange: setIsAiCategoriesLoading,
+    onLinuxDepsInstalled: () => {} // Called when Linux deps are detected as installed
   })
 
   const { isCompleting, setHasOptedInToPosthog, handleComplete } = useOnboardingCompletion({
@@ -279,6 +282,16 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                       )}
                     </Button>
                   </>
+                ) : isLinuxDependenciesStep ? (
+                  <Button
+                    onClick={handleNext}
+                    disabled={!linuxDepsInstalled}
+                    variant="default"
+                    size="default"
+                    className="min-w-[140px]"
+                  >
+                    {linuxDepsInstalled ? 'Continue' : 'Checking Dependencies...'}
+                  </Button>
                 ) : (
                   <Button
                     onClick={handleNext}
