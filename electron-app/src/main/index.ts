@@ -5,6 +5,15 @@ import path from 'path'
 import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { initializeAutoUpdater, registerAutoUpdaterHandlers } from './auto-updater'
 import { registerIpcHandlers } from './ipc'
+import { initializeLoggers } from './logging'
+import { getNativeWindows, initNativeModule } from './nativeModule'
+import {
+  getUrlToHandleOnReady,
+  handleAppUrl,
+  setupProtocolHandlers,
+  setupSingleInstanceLock
+} from './protocol'
+import { createFloatingWindow, createMainWindow, setIsAppQuitting } from './windows'
 
 const APP_ID = 'com.cronus.app'
 const LINUX_WM_CLASS = 'cronus'
@@ -40,43 +49,6 @@ function configureStableAppIdentity(): void {
     }
   }
 }
-
-// Platform-specific native module import
-// Use dynamic imports to only load module needed for current platform
-type NativeModule = {
-  startActiveWindowObserver: (cb: (windowInfo: ActiveWindowDetails | null) => void) => void
-  stopActiveWindowObserver: () => void
-}
-let nativeWindows: NativeModule
-
-// Initialize native module based on platform
-async function initNativeModule() {
-  if (process.platform === 'linux') {
-    try {
-      const nativeLinuxModule = await import('../native-modules/native-linux/index.js')
-      nativeWindows = nativeLinuxModule.nativeLinux as NativeModule
-    } catch (error) {
-      console.error('Failed to load native-linux module:', error)
-      throw error
-    }
-  } else {
-    try {
-      const nativeWindowsModule = await import('../native-modules/native-windows/index.js')
-      nativeWindows = nativeWindowsModule.nativeWindows as NativeModule
-    } catch (error) {
-      console.error('Failed to load native-windows module:', error)
-      throw error
-    }
-  }
-}
-import { initializeLoggers } from './logging'
-import {
-  getUrlToHandleOnReady,
-  handleAppUrl,
-  setupProtocolHandlers,
-  setupSingleInstanceLock
-} from './protocol'
-import { createFloatingWindow, createMainWindow, setIsAppQuitting } from './windows'
 
 // Explicitly load .env files to ensure production run-time app uses the correct .env file
 // NODE_ENV set in build isn't present in the run-time app
@@ -207,11 +179,11 @@ function App() {
     // Make the callback available to IPC handlers
     globalThis.stopActiveWindowObserver = () => {
       isTrackingPaused = true
-      nativeWindows.stopActiveWindowObserver()
+      getNativeWindows().stopActiveWindowObserver()
     }
     globalThis.startActiveWindowObserver = () => {
       isTrackingPaused = false
-      nativeWindows.startActiveWindowObserver(windowChangeCallback)
+      getNativeWindows().startActiveWindowObserver(windowChangeCallback)
     }
 
     // Handle app activation (e.g., clicking the dock icon on macOS)

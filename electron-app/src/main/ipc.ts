@@ -3,9 +3,9 @@ import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
 import fs from 'fs/promises'
 import { join } from 'path'
 import { Category } from 'shared/dist/types'
-import { ActiveWindowDetails } from 'shared/dist/types'
 import icon from '../../resources/icon.png?asset'
 import { logMainToFile } from './logging'
+import { getAllDependencies, getNativeWindows, initNativeModule } from './nativeModule'
 import { redactSensitiveContent } from './redaction'
 import { setAllowForcedQuit } from './windows'
 
@@ -13,69 +13,6 @@ import { setAllowForcedQuit } from './windows'
 declare global {
   let startActiveWindowObserver: (() => void) | undefined
   let stopActiveWindowObserver: (() => void) | undefined
-}
-
-// Type definitions for native module interface
-interface NativeModuleInterface {
-  startActiveWindowObserver: (callback: (details: ActiveWindowDetails | null) => void) => void
-  stopActiveWindowObserver: () => void
-  setPermissionDialogsEnabled: (enabled: boolean) => void
-  getPermissionDialogsEnabled: () => boolean
-  getPermissionStatus: (permissionType: number) => number
-  hasPermissionsForTitleExtraction: () => boolean
-  hasPermissionsForContentExtraction: () => boolean
-  requestPermission: (permissionType: number) => void
-  captureScreenshotAndOCRForCurrentWindow: () => {
-    success: boolean
-    error?: string
-    ocrText?: string
-  }
-  captureScreenshotAndOCRAsync?: () => Promise<{
-    success: boolean
-    error?: string
-    ocrText?: string
-    imagePath?: string
-  }>
-  getAppIconPath: (appName: string) => string | null
-}
-
-interface PermissionTypeEnum {
-  Accessibility: number
-  AppleEvents: number
-  ScreenRecording: number
-}
-
-import type { DependencyInfo } from '../native-modules/native-linux/types'
-
-type GetAllDependenciesFunction = (() => Promise<DependencyInfo[]>) | undefined
-
-// Platform-specific native module import
-// Use dynamic imports to only load the module needed for current platform
-let nativeWindows: NativeModuleInterface
-let PermissionType: PermissionTypeEnum
-let getAllDependencies: GetAllDependenciesFunction | undefined
-
-// Initialize native module based on platform
-async function initNativeModule(): Promise<void> {
-  if (process.platform === 'linux') {
-    const nativeLinuxModule = await import('../native-modules/native-linux/index.js')
-    nativeWindows = nativeLinuxModule.nativeLinux as NativeModuleInterface
-    PermissionType = nativeLinuxModule.PermissionType as PermissionTypeEnum
-    getAllDependencies = nativeLinuxModule.getAllDependencies as
-      | GetAllDependenciesFunction
-      | undefined
-  } else {
-    const nativeWindowsModule = await import('../native-modules/native-windows/index.js')
-    nativeWindows = nativeWindowsModule.nativeWindows as NativeModuleInterface
-    PermissionType = nativeWindowsModule.PermissionType as PermissionTypeEnum
-    getAllDependencies = undefined // macOS doesn't have getAllDependencies
-  }
-
-  // Ensure PermissionType is initialized and accessible for type checking
-  // This makes it clear to ESLint that PermissionType is used
-  if (!PermissionType) {
-    throw new Error('PermissionType enum not initialized')
-  }
 }
 
 export interface ActivityToRecategorize {
@@ -110,7 +47,7 @@ export async function registerIpcHandlers(
   })
 
   ipcMain.handle('get-app-icon-path', (_event, appName: string) => {
-    return nativeWindows.getAppIconPath(appName)
+    return getNativeWindows().getAppIconPath(appName)
   })
 
   ipcMain.on('hide-floating-window', () => {
@@ -154,7 +91,7 @@ export async function registerIpcHandlers(
 
   ipcMain.handle('enable-permission-requests', () => {
     logMainToFile('Enabling explicit permission requests after onboarding completion')
-    nativeWindows.setPermissionDialogsEnabled(true)
+    getNativeWindows().setPermissionDialogsEnabled(true)
   })
 
   ipcMain.handle('start-window-tracking', () => {
@@ -217,35 +154,35 @@ export async function registerIpcHandlers(
 
   // Permission-related IPC handlers
   ipcMain.handle('get-permission-request-status', () => {
-    return nativeWindows.getPermissionDialogsEnabled()
+    return getNativeWindows().getPermissionDialogsEnabled()
   })
 
   ipcMain.handle(
     'get-permission-status',
-    (_event, permissionType: (typeof PermissionType)[keyof typeof PermissionType]) => {
-      return nativeWindows.getPermissionStatus(permissionType)
+    (_event, permissionType: number) => {
+      return getNativeWindows().getPermissionStatus(permissionType)
     }
   )
 
   ipcMain.handle('get-permissions-for-title-extraction', () => {
-    return nativeWindows.hasPermissionsForTitleExtraction()
+    return getNativeWindows().hasPermissionsForTitleExtraction()
   })
 
   ipcMain.handle('get-permissions-for-content-extraction', () => {
-    return nativeWindows.hasPermissionsForContentExtraction()
+    return getNativeWindows().hasPermissionsForContentExtraction()
   })
 
   ipcMain.handle(
     'request-permission',
-    (_event, permissionType: (typeof PermissionType)[keyof typeof PermissionType]) => {
+    (_event, permissionType: number) => {
       logMainToFile(`Manually requesting permission: ${permissionType}`)
-      nativeWindows.requestPermission(permissionType)
+      getNativeWindows().requestPermission(permissionType)
     }
   )
 
   ipcMain.handle('force-enable-permission-requests', () => {
     logMainToFile('Force enabling explicit permission requests via settings')
-    nativeWindows.setPermissionDialogsEnabled(true)
+    getNativeWindows().setPermissionDialogsEnabled(true)
   })
 
   ipcMain.on('open-external-url', (_event, url: string) => {
@@ -347,7 +284,7 @@ export async function registerIpcHandlers(
 
   ipcMain.handle('capture-screenshot-and-ocr', async () => {
     try {
-      const result = nativeWindows.captureScreenshotAndOCRForCurrentWindow()
+      const result = getNativeWindows().captureScreenshotAndOCRForCurrentWindow()
       logMainToFile('Screenshot + OCR captured', {
         success: result.success,
         textLength: result.ocrText?.length || 0
@@ -502,14 +439,12 @@ export async function registerIpcHandlers(
   })
 
   ipcMain.handle('get-linux-dependencies', async () => {
-    if (process.platform !== 'linux' || !getAllDependencies) {
+    const getAllDeps = getAllDependencies()
+    if (process.platform !== 'linux' || !getAllDeps) {
       return null
     }
     try {
-      if (getAllDependencies) {
-        return await getAllDependencies()
-      }
-      return []
+      return await getAllDeps()
     } catch (error) {
       console.error('Error getting Linux dependencies:', error)
       return null
