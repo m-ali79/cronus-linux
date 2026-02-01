@@ -23,7 +23,7 @@ export async function logMainToFile(message: string, data?: object): Promise<voi
   if (data) {
     try {
       logEntry += `\n${JSON.stringify(data, null, 2)}`
-    } catch (e) {
+    } catch {
       logEntry += `\n[Could not stringify data]`
     }
   }
@@ -40,7 +40,7 @@ export async function logRendererToFile(message: string, data?: object): Promise
   if (data) {
     try {
       logEntry += `\n${JSON.stringify(data, null, 2)}`
-    } catch (e) {
+    } catch {
       logEntry += `\n[Could not stringify data]`
     }
   }
