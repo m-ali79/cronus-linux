@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import path from 'path'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
+import type { ActiveWindowDetails } from 'shared/types'
 
 // TODO: duplicated in renderer/src/components/Settings/PermissionsStatus.tsx
 // Permission types enum to match native layer

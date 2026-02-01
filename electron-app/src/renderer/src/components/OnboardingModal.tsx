@@ -96,8 +96,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     onGoalsComplete: handleGoalsCompleteAndNext,
     onCategoriesComplete: handleCategoriesCompleteAndNext,
     onNext: () => {}, // Will be updated after completion hook
-    onAiCategoriesLoadingChange: setIsAiCategoriesLoading,
-    onLinuxDepsInstalled: () => {} // Called when Linux deps are detected as installed
+    onAiCategoriesLoadingChange: setIsAiCategoriesLoading
   })
 
   const { isCompleting, setHasOptedInToPosthog, handleComplete } = useOnboardingCompletion({

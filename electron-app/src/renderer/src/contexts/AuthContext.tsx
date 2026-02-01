@@ -1,6 +1,6 @@
 import { usePostHog } from 'posthog-js/react'
 import { createContext, JSX, ReactNode, useContext, useEffect, useState } from 'react'
-import { User } from 'shared/dist/types.js'
+import type { User } from 'shared/types'
 import { useToast } from '../hooks/use-toast'
 import { exchangeGoogleCodeForTokens } from '../lib/auth'
 import { trpc } from '../utils/trpc'

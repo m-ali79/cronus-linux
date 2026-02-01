@@ -1,6 +1,6 @@
 import { Check, Loader2, Smile } from 'lucide-react'
 import { JSX, useState } from 'react'
-import { Category } from 'shared/dist/types.js'
+import type { Category } from 'shared/types'
 import { Button } from '../ui/button'
 import { EmojiPicker, EmojiPickerContent, EmojiPickerSearch } from '../ui/emoji-picker'
 import { Input } from '../ui/input'

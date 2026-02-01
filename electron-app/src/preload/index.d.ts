@@ -1,5 +1,4 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { FloatingWindowApi } from './floatingPreload'
 
 // Use the BaseElectronAPI type from electron-toolkit if available

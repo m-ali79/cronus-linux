@@ -1,4 +1,4 @@
-import type { ActiveWindowDetails } from 'shared/dist/types.js'
+import type { ActiveWindowDetails } from 'shared/types'
 
 import type { DependencyInfo } from '../native-modules/native-linux/types'
 

@@ -1,20 +1,13 @@
-import { AlertTriangle, CheckCircle, Download, Loader2, Package, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Copy, Loader2, Package, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useToast } from '../../hooks/use-toast'
+import type { LinuxDependency } from '../../types/linuxDependencies'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 
-interface LinuxDependency {
-  type: number
-  name: string
-  installed: boolean
-  required: boolean
-  version?: string
-  purpose: string
-  installCommand: string
-}
-
 export function LinuxDependenciesStatus() {
+  const { toast } = useToast()
   const [dependencies, setDependencies] = useState<LinuxDependency[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -42,8 +35,26 @@ export function LinuxDependenciesStatus() {
     await loadDependencies()
   }
 
-  const handleCopyCommand = (command: string) => {
-    navigator.clipboard.writeText(command)
+  const handleCopyCommand = async (command: string) => {
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error('Clipboard API not available')
+      }
+      await navigator.clipboard.writeText(command)
+      toast({
+        title: 'Copied',
+        description: 'Command copied to clipboard.',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('Error copying command to clipboard:', error)
+      toast({
+        title: 'Copy failed',
+        description: 'Could not copy command to clipboard.',
+        variant: 'destructive',
+        duration: 2000
+      })
+    }
   }
 
   const getStatusIcon = (installed: boolean) => {
@@ -171,7 +182,7 @@ export function LinuxDependenciesStatus() {
                     onClick={() => handleCopyCommand(dep.installCommand)}
                     title="Copy to clipboard"
                   >
-                    <Download className="w-4 h-4" />
+                    <Copy className="w-4 h-4" />
                   </Button>
                 </div>
               )}

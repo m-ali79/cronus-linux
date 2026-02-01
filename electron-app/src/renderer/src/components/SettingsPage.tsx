@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
+import { usePlatform } from '../hooks/usePlatform'
 import { CategoryManagementSettings } from './Settings/CategoryManagementSettings'
 import { DisableUsageAnalyticsSettings } from './Settings/DisableUsageAnalyticsSettings'
 import { DistractionSoundSettings } from './Settings/DistractionSoundSettings'
@@ -71,15 +72,8 @@ export const SettingsPage = memo(function SettingsPage({
 }: SettingsPageProps) {
   const { user, logout } = useAuth()
   const { focusOn, setFocusOn } = useSettings()
+  const { isLinux } = usePlatform()
   const [showPermissions, setShowPermissions] = useState(false)
-  const [platform, setPlatform] = useState<string>('darwin')
-
-  useEffect(() => {
-    window.api
-      .getPlatform()
-      .then(setPlatform)
-      .catch(() => setPlatform('darwin'))
-  }, [])
 
   useEffect(() => {
     if (focusOn === 'goal-input' || focusOn === 'pause-tracking') {
@@ -114,8 +108,7 @@ export const SettingsPage = memo(function SettingsPage({
         <DisableUsageAnalyticsSettings />
         <LogOutButtonSection user={user} logout={logout} onResetOnboarding={onResetOnboarding} />
         <AppInformation onShowPermissions={handleShowPermissions} />
-        {showPermissions &&
-          (platform === 'linux' ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
+        {showPermissions && (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
       </div>
     </div>
   )

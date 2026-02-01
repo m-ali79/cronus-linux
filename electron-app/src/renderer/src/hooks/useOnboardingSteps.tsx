@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { User } from 'shared/dist/types.js'
+import { useCallback, useMemo, useState } from 'react'
+import type { User } from 'shared/types'
 import { AccessibilityStep } from '../components/Onboarding/AccessibilityStep'
 import { CompleteStep } from '../components/Onboarding/CompleteStep'
 import { LinuxDependenciesStep } from '../components/Onboarding/LinuxDependenciesStep'
@@ -8,6 +8,7 @@ import { ScreenRecordingStep } from '../components/Onboarding/ScreenRecordingSte
 import { WelcomeStep } from '../components/Onboarding/WelcomeStep'
 import { AiCategoryCustomization } from '../components/Settings/AiCategoryCustomization'
 import GoalInputForm from '../components/Settings/GoalInputForm'
+import { usePlatform } from './usePlatform'
 
 interface UseOnboardingStepsProps {
   user: User | null
@@ -47,25 +48,15 @@ export function useOnboardingSteps({
   onLinuxDepsInstalled
 }: UseOnboardingStepsProps) {
   const [currentStep, setCurrentStep] = useState(0)
-  const [platform, setPlatform] = useState<string>('darwin')
+  const { isLinux } = usePlatform()
   const [linuxDepsInstalled, setLinuxDepsInstalled] = useState(false)
 
-  // Detect platform on mount
-  useEffect(() => {
-    window.api
-      .getPlatform()
-      .then(setPlatform)
-      .catch(() => setPlatform('darwin'))
-  }, [])
-
-  const handleLinuxDepsInstalled = () => {
+  const handleLinuxDepsInstalled = useCallback(() => {
     setLinuxDepsInstalled(true)
     if (onLinuxDepsInstalled) {
       onLinuxDepsInstalled()
     }
-  }
-
-  const isLinux = platform === 'linux'
+  }, [onLinuxDepsInstalled])
 
   const baseSteps = useMemo(
     () => [

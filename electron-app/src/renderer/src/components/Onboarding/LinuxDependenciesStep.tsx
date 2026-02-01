@@ -1,15 +1,6 @@
 import { CheckCircle, Package, Terminal, XCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
-
-interface LinuxDependency {
-  type: number
-  name: string
-  installed: boolean
-  required: boolean
-  version?: string
-  purpose: string
-  installCommand: string
-}
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { LinuxDependency } from '../../types/linuxDependencies'
 
 interface LinuxDependenciesStepProps {
   onAllRequiredInstalled: () => void
@@ -19,14 +10,19 @@ export function LinuxDependenciesStep({ onAllRequiredInstalled }: LinuxDependenc
   const [dependencies, setDependencies] = useState<LinuxDependency[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadDependencies = async () => {
+  const hasFiredAllRequiredInstalledRef = useRef(false)
+
+  const loadDependencies = useCallback(async () => {
     try {
       const deps = await window.api.getLinuxDependencies()
       if (deps) {
         setDependencies(deps)
         // Check if all required dependencies are installed
-        const allRequiredInstalled = deps.filter((d) => d.required).every((d) => d.installed)
-        if (allRequiredInstalled) {
+        const requiredDeps = deps.filter((d) => d.required)
+        const allRequiredInstalled =
+          requiredDeps.length > 0 && requiredDeps.every((d) => d.installed)
+        if (allRequiredInstalled && !hasFiredAllRequiredInstalledRef.current) {
+          hasFiredAllRequiredInstalledRef.current = true
           onAllRequiredInstalled()
         }
       }
@@ -35,18 +31,19 @@ export function LinuxDependenciesStep({ onAllRequiredInstalled }: LinuxDependenc
     } finally {
       setLoading(false)
     }
-  }
+  }, [onAllRequiredInstalled])
 
   useEffect(() => {
     loadDependencies()
     // Poll for dependency changes every 3 seconds
     const interval = setInterval(loadDependencies, 3000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadDependencies])
 
   const requiredDeps = dependencies.filter((d) => d.required)
   const optionalDeps = dependencies.filter((d) => !d.required)
-  const allRequiredInstalled = requiredDeps.every((d) => d.installed)
+  const allRequiredInstalled =
+    requiredDeps.length > 0 && requiredDeps.every((d) => d.installed)
 
   if (loading) {
     return (
