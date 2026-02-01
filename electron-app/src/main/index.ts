@@ -186,7 +186,7 @@ function App() {
       }
     }
 
-    registerIpcHandlers(windows, recreateFloatingWindow, recreateMainWindow)
+    await registerIpcHandlers(windows, recreateFloatingWindow, recreateMainWindow)
     registerAutoUpdaterHandlers()
 
     // Don't start observing active window changes immediately

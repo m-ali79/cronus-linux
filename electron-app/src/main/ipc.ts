@@ -78,8 +78,6 @@ async function initNativeModule(): Promise<void> {
   }
 }
 
-initNativeModule()
-
 export interface ActivityToRecategorize {
   identifier: string
   nameToDisplay: string
@@ -96,11 +94,13 @@ interface Windows {
   floatingWindow: BrowserWindow | null
 }
 
-export function registerIpcHandlers(
+export async function registerIpcHandlers(
   windows: Windows,
   recreateFloatingWindow: () => void,
   recreateMainWindow: () => BrowserWindow
-): void {
+): Promise<void> {
+  await initNativeModule()
+
   ipcMain.on('move-floating-window', (_event, { deltaX, deltaY }) => {
     if (windows.floatingWindow) {
       const currentPosition = windows.floatingWindow.getPosition()

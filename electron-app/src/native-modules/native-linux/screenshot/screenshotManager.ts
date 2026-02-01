@@ -25,6 +25,28 @@ const DEFAULT_SETTINGS: ScreenshotSettings = {
 // Max OCR text length (matching macOS)
 const MAX_OCR_TEXT_LENGTH = 2000
 
+// Per-folder write queue to prevent concurrent metadata.json RMW races.
+const metadataWriteQueueByFolder = new Map<string, Promise<void>>()
+
+function enqueueFolderWrite(folderPath: string, op: () => Promise<void>): Promise<void> {
+  const previous = metadataWriteQueueByFolder.get(folderPath) ?? Promise.resolve()
+
+  const next = previous
+    // Ensure a previous failure doesn't block later queued operations.
+    .catch(() => {})
+    .then(op)
+
+  const nextWithCleanup = next.finally(() => {
+    // Only remove the key if this is still the tail.
+    if (metadataWriteQueueByFolder.get(folderPath) === nextWithCleanup) {
+      metadataWriteQueueByFolder.delete(folderPath)
+    }
+  })
+
+  metadataWriteQueueByFolder.set(folderPath, nextWithCleanup)
+  return nextWithCleanup
+}
+
 export class ScreenshotManager {
   private basePath: string
   private settings: ScreenshotSettings
@@ -268,27 +290,29 @@ export class ScreenshotManager {
       title: string
     }
   ): Promise<void> {
-    const metadataPath = path.join(folderPath, 'metadata.json')
-
-    try {
-      let metadata: { screenshots: (typeof entry)[] } = { screenshots: [] }
+    return enqueueFolderWrite(folderPath, async () => {
+      const metadataPath = path.join(folderPath, 'metadata.json')
 
       try {
-        const existing = await fs.readFile(metadataPath, 'utf-8')
-        metadata = JSON.parse(existing)
-      } catch {
-        // File doesn't exist, use empty array
+        let metadata: { screenshots: (typeof entry)[] } = { screenshots: [] }
+
+        try {
+          const existing = await fs.readFile(metadataPath, 'utf-8')
+          metadata = JSON.parse(existing)
+        } catch {
+          // File doesn't exist, use empty array
+        }
+
+        metadata.screenshots.push(entry)
+
+        // Keep sorted by timestamp
+        metadata.screenshots.sort((a, b) => a.timestamp - b.timestamp)
+
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+      } catch (error) {
+        console.error('[ScreenshotManager] Failed to update metadata:', error)
       }
-
-      metadata.screenshots.push(entry)
-
-      // Keep sorted by timestamp
-      metadata.screenshots.sort((a, b) => a.timestamp - b.timestamp)
-
-      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
-    } catch (error) {
-      console.error('[ScreenshotManager] Failed to update metadata:', error)
-    }
+    })
   }
 
   /**

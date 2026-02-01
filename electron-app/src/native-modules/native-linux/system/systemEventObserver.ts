@@ -72,6 +72,29 @@ export class SystemEventObserver extends EventEmitter {
       console.log('[SystemEventObserver] Started successfully')
     } catch (error) {
       console.error('[SystemEventObserver] Failed to start:', error)
+      // Reset state so subsequent calls can retry safely
+      this.isRunning = false
+
+      if (this.systemBus) {
+        try {
+          this.systemBus.disconnect()
+        } catch {
+          // Ignore disconnect errors
+        }
+        this.systemBus = null
+      }
+
+      if (this.sessionBus) {
+        try {
+          this.sessionBus.disconnect()
+        } catch {
+          // Ignore disconnect errors
+        }
+        this.sessionBus = null
+      }
+
+      this.callback = null
+      this.dbus = null
       // Don't throw - system events are optional
     }
   }
