@@ -72,7 +72,7 @@ export const SettingsPage = memo(function SettingsPage({
 }: SettingsPageProps) {
   const { user, logout } = useAuth()
   const { focusOn, setFocusOn } = useSettings()
-  const { isLinux } = usePlatform()
+  const { isLinux, isLoading } = usePlatform()
   const [showPermissions, setShowPermissions] = useState(false)
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export const SettingsPage = memo(function SettingsPage({
         <DisableUsageAnalyticsSettings />
         <LogOutButtonSection user={user} logout={logout} onResetOnboarding={onResetOnboarding} />
         <AppInformation onShowPermissions={handleShowPermissions} />
-        {showPermissions && (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
+        {showPermissions && !isLoading && (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
       </div>
     </div>
   )

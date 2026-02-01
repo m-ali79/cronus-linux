@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle, Copy, Loader2, Package, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useToast } from '../../hooks/use-toast'
-import type { LinuxDependency } from '../../types/linuxDependencies'
+import type { LinuxDependency } from 'shared/types'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'

@@ -48,7 +48,7 @@ export function useOnboardingSteps({
   onLinuxDepsInstalled
 }: UseOnboardingStepsProps) {
   const [currentStep, setCurrentStep] = useState(0)
-  const { isLinux } = usePlatform()
+  const { isLinux, isLoading } = usePlatform()
   const [linuxDepsInstalled, setLinuxDepsInstalled] = useState(false)
 
   const handleLinuxDepsInstalled = useCallback(() => {
@@ -155,6 +155,11 @@ export function useOnboardingSteps({
         return false
       }
 
+      // Avoid showing platform-specific UI until we know the platform
+      if (isLoading) {
+        return step.id !== 'linux-dependencies' && step.id !== 'accessibility' && step.id !== 'screen-recording'
+      }
+
       // Linux-specific: show linux-dependencies step only on Linux
       if (step.id === 'linux-dependencies') {
         return isLinux
@@ -167,7 +172,7 @@ export function useOnboardingSteps({
 
       return true
     })
-  }, [baseSteps, user?.isInEU, hasExistingGoals, hasCategories, isLinux])
+  }, [baseSteps, user?.isInEU, hasExistingGoals, hasCategories, isLinux, isLoading])
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {

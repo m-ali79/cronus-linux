@@ -439,8 +439,11 @@ export async function registerIpcHandlers(
   })
 
   ipcMain.handle('get-linux-dependencies', async () => {
+    if (process.platform !== 'linux') {
+      return null
+    }
     const getAllDeps = getAllDependencies()
-    if (process.platform !== 'linux' || !getAllDeps) {
+    if (!getAllDeps) {
       return null
     }
     try {
