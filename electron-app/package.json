@@ -12,7 +12,7 @@
   },
   "scripts": {
     "------ DEVELOPMENT ---------": "echo '------ DEVELOPMENT ---------'",
-    "dev": "VITE_BUILD_DATE=dev electron-vite dev",
+    "dev": "BROWSERSLIST_IGNORE_OLD_DATA=true VITE_BUILD_DATE=dev electron-vite dev",
     "postinstall": "electron-builder install-app-deps",
     "------ LINTING & TYPE-CHECKING ---------": "echo '------ LINTING & TYPE-CHECKING ---------'",
     "format": "prettier --write .",
@@ -26,7 +26,9 @@
     "build:unpack": "bun run build && electron-builder --dir",
     "build:local": "bun run build && electron-builder --mac --dir --config.mac.notarize=false",
     "build:win": "bun run build && electron-builder --win",
-    "build:linux": "electron-vite build && electron-builder --linux",
+    "build:linux": "VITE_BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') electron-vite build && electron-builder --linux",
+    "build:linux:pacman": "VITE_BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') electron-vite build && electron-builder --linux pacman",
+    "build:linux:appimage": "VITE_BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') electron-vite build && electron-builder --linux AppImage",
     "build:mac:electron-builder": "NODE_ENV=production bun run build && npx electron-builder --mac --arm64 --publish never",
     "------ NATIVE MODULES ---------": "echo '------ NATIVE MODULES ---------'",
     "native-modules:rebuild": "bun run native-modules:clean && npx electron-rebuild -f -m src/native-modules/native-windows",
@@ -97,9 +99,38 @@
         "from": "src/native-modules/native-windows/build/Release/nativeWindows.node",
         "to": "native/nativeWindows.node"
       }
-    ]
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "pacman",
+        "tar.gz"
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "executableName": "cronus",
+      "artifactName": "Cronus-${version}-${arch}.${ext}",
+      "desktop": {
+        "Name": "Cronus",
+        "Comment": "AI-powered time tracking and productivity",
+        "Categories": "Utility;Office;",
+        "StartupWMClass": "cronus"
+      }
+    },
+    "pacman": {
+      "depends": [
+        "electron",
+        "glib2"
+      ],
+      "optDepends": [
+        "grim: Screenshot capture for Wayland",
+        "tesseract: OCR text extraction",
+        "tesseract-data-eng: English language data for OCR"
+      ]
+    }
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-checkbox": "^1.3.2",
     "@radix-ui/react-context-menu": "^2.2.15",
@@ -132,6 +163,7 @@
     "crc": "^4.3.2",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
+    "dbus-next": "^0.10.2",
     "debug": "^4.4.1",
     "deepmerge": "4.3.1",
     "electron-app": "^1.0.0",
