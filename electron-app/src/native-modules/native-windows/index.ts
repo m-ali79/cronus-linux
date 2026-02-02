@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import path from 'path'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
+import type { ActiveWindowDetails } from 'shared/types'
 
 // TODO: duplicated in renderer/src/components/Settings/PermissionsStatus.tsx
 // Permission types enum to match native layer
@@ -17,6 +17,12 @@ export enum PermissionStatus {
   Pending = 2
 }
 
+interface ScreenshotOCRResult {
+  success: boolean
+  error?: string
+  ocrText?: string
+}
+
 interface Addon {
   startActiveWindowObserver: (callback: (jsonString: string) => void) => void
   stopActiveWindowObserver: () => void
@@ -26,7 +32,7 @@ interface Addon {
   hasPermissionsForTitleExtraction: () => boolean
   hasPermissionsForContentExtraction: () => boolean
   requestPermission: (permissionType: number) => void
-  captureScreenshotAndOCRForCurrentWindow: () => any
+  captureScreenshotAndOCRForCurrentWindow: () => ScreenshotOCRResult
   getAppIconPath: (appName: string) => string | null
 }
 
@@ -34,17 +40,17 @@ const isDevelopment = !app.isPackaged
 
 const addonPath = isDevelopment
   ? path.join(
-      process.cwd(),
-      'src',
-      'native-modules',
-      'native-windows',
-      'build',
-      'Release',
-      'nativeWindows.node'
-    )
+    process.cwd(),
+    'src',
+    'native-modules',
+    'native-windows',
+    'build',
+    'Release',
+    'nativeWindows.node'
+  )
   : path.join(process.resourcesPath, 'native', 'nativeWindows.node')
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const addon: Addon = require(addonPath)
 
 class NativeWindows {
@@ -63,6 +69,7 @@ class NativeWindows {
             ...detailsJson,
             windowId: detailsJson.id || 0 // Default to 0 if id is missing
           }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           delete (details as any).id // remove original id if it exists to avoid confusion
           // console.log('[NativeWindowsWrapper] Processed event:', details)
           callback(details)
@@ -133,7 +140,7 @@ class NativeWindows {
   /**
    * Captures screenshot and performs ocr for current window
    */
-  public captureScreenshotAndOCRForCurrentWindow(): any {
+  public captureScreenshotAndOCRForCurrentWindow(): ScreenshotOCRResult {
     return addon.captureScreenshotAndOCRForCurrentWindow()
   }
 

@@ -4,8 +4,8 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { ActiveWindowDetails } from '../../../../shared/types';
 
-// Note: These tests perform live OpenAI API calls.
-// Ensure OPENAI_API_KEY is set in your environment.
+// Note: These tests perform live LLM API calls.
+// Ensure GOOGLE_GENERATIVE_AI_API_KEY is set in your environment.
 
 // Mock Mongoose models and their methods
 const mockActiveWindowEventModel = {
@@ -181,7 +181,7 @@ describe('categorizeActivity', () => {
       distractionCategory,
     ];
 
-    test('should call OpenAI and return a category when no history is found', async () => {
+    test('should call the LLM and return a category when no history is found', async () => {
       const activeWindow = {
         ownerName: 'Code',
         title: 'Writing a new feature for an AI assistant',

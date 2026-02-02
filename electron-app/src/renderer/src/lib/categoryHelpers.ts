@@ -1,5 +1,5 @@
 import { type ComparableCategory } from 'shared/categories'
-import { type Category } from 'shared/dist/types.js'
+import type { Category } from 'shared/types'
 
 export function checkCategoriesAgainstDefaults(
   currentCategories: Category[] | undefined,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { type Category } from 'shared/dist/types'
+import type { Category } from 'shared/types'
 import { templateCategories } from '../components/Settings/CategoryTemplateList'
 
 type HistoryData =

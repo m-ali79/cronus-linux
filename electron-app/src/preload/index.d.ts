@@ -1,5 +1,4 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { FloatingWindowApi } from './floatingPreload'
 
 // Use the BaseElectronAPI type from electron-toolkit if available
@@ -18,6 +17,17 @@ export enum PermissionStatus {
   Pending = 2
 }
 
+// Linux dependency info type
+export interface LinuxDependencyInfo {
+  type: number
+  name: string
+  installed: boolean
+  required: boolean
+  version?: string
+  purpose: string
+  installCommand: string
+}
+
 // Define ActiveWindowDetails here, as it's used by the api type
 export interface ActiveWindowDetails {
   id: number
@@ -31,13 +41,14 @@ export interface ActiveWindowDetails {
 }
 
 // Define a more specific type for ipcRenderer if BaseElectronAPI is not sufficient
-interface CustomIpcRenderer extends BaseElectronAPI['ipcRenderer'] {
-  removeListener: (channel: string, listener: (...args: any[]) => void) => void
+type BaseIpcRenderer = BaseElectronAPI['ipcRenderer']
+interface CustomIpcRenderer extends BaseIpcRenderer {
+  removeListener: (channel: string, listener: (...args: unknown[]) => void) => void
   // Potentially include other methods like on, send, invoke if they also need explicit typing
   // For now, let's assume BaseElectronAPI['ipcRenderer'] has them, and we only add/ensure removeListener
-  on: (channel: string, listener: (...args: any[]) => void) => void
-  send: (channel: string, ...args: any[]) => void
-  invoke: (channel: string, ...args: any[]) => Promise<any>
+  on: (channel: string, listener: (...args: unknown[]) => void) => void
+  send: (channel: string, ...args: unknown[]) => void
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 interface CustomElectronAPI extends BaseElectronAPI {
@@ -53,11 +64,14 @@ declare global {
       onAuthCodeReceived: (callback: (code: string) => void) => () => void // Return type for cleanup function
       onActiveWindowChanged: (callback: (details: ActiveWindowDetails) => void) => () => void // Return type for cleanup function
       // Add the new function's type signature here
-      getEnvVariables: () => Promise<{ GOOGLE_CLIENT_ID?: string; [key: string]: any }>
+      getEnvVariables: () => Promise<{ GOOGLE_CLIENT_ID?: string;[key: string]: unknown }>
+      fetchAuthCode: () => Promise<string | null>
 
       readFile: (filePath: string) => Promise<ArrayBuffer>
       deleteFile: (filePath: string) => Promise<void>
-      onDisplayRecategorizePage: (callback: (activity: ActivityToRecategorize) => void) => () => void
+      onDisplayRecategorizePage: (
+        callback: (activity: ActivityToRecategorize) => void
+      ) => () => void
       getFloatingWindowVisibility: () => Promise<boolean>
       getAudioDataUrl: () => Promise<string | null>
       openExternalUrl: (url: string) => void
@@ -77,7 +91,7 @@ declare global {
       checkForUpdates: () => Promise<void>
       downloadUpdate: () => Promise<void>
       installUpdate: () => Promise<void>
-      onUpdateStatus: (callback: (status: any) => void) => () => void
+      onUpdateStatus: (callback: (status: unknown) => void) => () => void
       captureScreenshotAndOCR: () => Promise<{
         success: boolean
         ocrText?: string
@@ -89,7 +103,12 @@ declare global {
       redactSensitiveContent: (content: string) => Promise<string>
       // setSentryUser: (userData: { id: string; email: string; username: string; subscription: boolean } | null) => Promise<void>
       confirmQuit: () => Promise<void>
-  
+
+      // Platform detection
+      getPlatform: () => Promise<string>
+
+      // Linux-specific methods
+      getLinuxDependencies: () => Promise<LinuxDependencyInfo[] | null>
     }
     floatingApi: FloatingWindowApi
   }

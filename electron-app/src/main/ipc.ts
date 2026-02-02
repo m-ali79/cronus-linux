@@ -2,12 +2,18 @@ import { is } from '@electron-toolkit/utils'
 import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
 import fs from 'fs/promises'
 import { join } from 'path'
-import { Category } from 'shared/dist/types'
+import type { Category } from 'shared/types'
 import icon from '../../resources/icon.png?asset'
-import { nativeWindows, PermissionType } from '../native-modules/native-windows'
 import { logMainToFile } from './logging'
+import { getAllDependencies, getNativeWindows, initNativeModule } from './nativeModule'
 import { redactSensitiveContent } from './redaction'
 import { setAllowForcedQuit } from './windows'
+
+// Type-safe global functions for window tracking
+declare global {
+  let startActiveWindowObserver: (() => void) | undefined
+  let stopActiveWindowObserver: (() => void) | undefined
+}
 
 export interface ActivityToRecategorize {
   identifier: string
@@ -25,11 +31,13 @@ interface Windows {
   floatingWindow: BrowserWindow | null
 }
 
-export function registerIpcHandlers(
+export async function registerIpcHandlers(
   windows: Windows,
   recreateFloatingWindow: () => void,
   recreateMainWindow: () => BrowserWindow
-): void {
+): Promise<void> {
+  await initNativeModule()
+
   ipcMain.on('move-floating-window', (_event, { deltaX, deltaY }) => {
     if (windows.floatingWindow) {
       const currentPosition = windows.floatingWindow.getPosition()
@@ -39,7 +47,7 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle('get-app-icon-path', (_event, appName: string) => {
-    return nativeWindows.getAppIconPath(appName)
+    return getNativeWindows().getAppIconPath(appName)
   })
 
   ipcMain.on('hide-floating-window', () => {
@@ -83,14 +91,14 @@ export function registerIpcHandlers(
 
   ipcMain.handle('enable-permission-requests', () => {
     logMainToFile('Enabling explicit permission requests after onboarding completion')
-    nativeWindows.setPermissionDialogsEnabled(true)
+    getNativeWindows().setPermissionDialogsEnabled(true)
   })
 
   ipcMain.handle('start-window-tracking', () => {
     logMainToFile('Starting active window observer after onboarding completion')
     // Call the global function we set up in main/index.ts
-    if ((global as any).startActiveWindowObserver) {
-      ;(global as any).startActiveWindowObserver()
+    if (global.startActiveWindowObserver) {
+      global.startActiveWindowObserver()
     } else {
       logMainToFile('ERROR: startActiveWindowObserver function not available')
     }
@@ -99,8 +107,8 @@ export function registerIpcHandlers(
   ipcMain.handle('pause-window-tracking', () => {
     logMainToFile('Pausing active window observer')
     // Call the global function to stop tracking
-    if ((global as any).stopActiveWindowObserver) {
-      ;(global as any).stopActiveWindowObserver()
+    if (global.stopActiveWindowObserver) {
+      global.stopActiveWindowObserver()
     } else {
       logMainToFile('ERROR: stopActiveWindowObserver function not available')
     }
@@ -109,8 +117,8 @@ export function registerIpcHandlers(
   ipcMain.handle('resume-window-tracking', () => {
     logMainToFile('Resuming active window observer')
     // Call the global function to start tracking again
-    if ((global as any).startActiveWindowObserver) {
-      ;(global as any).startActiveWindowObserver()
+    if (global.startActiveWindowObserver) {
+      global.startActiveWindowObserver()
     } else {
       logMainToFile('ERROR: startActiveWindowObserver function not available')
     }
@@ -146,29 +154,35 @@ export function registerIpcHandlers(
 
   // Permission-related IPC handlers
   ipcMain.handle('get-permission-request-status', () => {
-    return nativeWindows.getPermissionDialogsEnabled()
+    return getNativeWindows().getPermissionDialogsEnabled()
   })
 
-  ipcMain.handle('get-permission-status', (_event, permissionType: PermissionType) => {
-    return nativeWindows.getPermissionStatus(permissionType)
-  })
+  ipcMain.handle(
+    'get-permission-status',
+    (_event, permissionType: number) => {
+      return getNativeWindows().getPermissionStatus(permissionType)
+    }
+  )
 
   ipcMain.handle('get-permissions-for-title-extraction', () => {
-    return nativeWindows.hasPermissionsForTitleExtraction()
+    return getNativeWindows().hasPermissionsForTitleExtraction()
   })
 
   ipcMain.handle('get-permissions-for-content-extraction', () => {
-    return nativeWindows.hasPermissionsForContentExtraction()
+    return getNativeWindows().hasPermissionsForContentExtraction()
   })
 
-  ipcMain.handle('request-permission', (_event, permissionType: PermissionType) => {
-    logMainToFile(`Manually requesting permission: ${permissionType}`)
-    nativeWindows.requestPermission(permissionType)
-  })
+  ipcMain.handle(
+    'request-permission',
+    (_event, permissionType: number) => {
+      logMainToFile(`Manually requesting permission: ${permissionType}`)
+      getNativeWindows().requestPermission(permissionType)
+    }
+  )
 
   ipcMain.handle('force-enable-permission-requests', () => {
     logMainToFile('Force enabling explicit permission requests via settings')
-    nativeWindows.setPermissionDialogsEnabled(true)
+    getNativeWindows().setPermissionDialogsEnabled(true)
   })
 
   ipcMain.on('open-external-url', (_event, url: string) => {
@@ -179,8 +193,9 @@ export function registerIpcHandlers(
     return windows.floatingWindow?.isVisible() ?? false
   })
 
-  ipcMain.on('log-to-file', (_event, _message: string, _data?: object) => {
+  ipcMain.on('log-to-file', () => {
     // logRendererToFile(message, data)
+    // Parameters are intentionally unused - this is a placeholder handler
   })
 
   ipcMain.handle('get-env-vars', () => {
@@ -192,6 +207,28 @@ export function registerIpcHandlers(
       POSTHOG_HOST: import.meta.env.MAIN_VITE_POSTHOG_HOST,
       GOOGLE_CLIENT_SECRET: import.meta.env.MAIN_VITE_GOOGLE_CLIENT_SECRET
     }
+  })
+
+  // Poll for auth code from server (development mode)
+  ipcMain.handle('fetch-auth-code', async () => {
+    try {
+      const response = await fetch('http://localhost:3001/auth-code', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.code) {
+          console.log('[IPC] Retrieved auth code from server')
+          // Clear the code on server after retrieving
+          await fetch('http://localhost:3001/auth-code', { method: 'DELETE' })
+          return data.code
+        }
+      }
+    } catch {
+      // Server might not be running, that's OK
+    }
+    return null
   })
 
   ipcMain.handle('get-app-version', () => {
@@ -247,7 +284,7 @@ export function registerIpcHandlers(
 
   ipcMain.handle('capture-screenshot-and-ocr', async () => {
     try {
-      const result = nativeWindows.captureScreenshotAndOCRForCurrentWindow()
+      const result = getNativeWindows().captureScreenshotAndOCRForCurrentWindow()
       logMainToFile('Screenshot + OCR captured', {
         success: result.success,
         textLength: result.ocrText?.length || 0
@@ -395,4 +432,25 @@ export function registerIpcHandlers(
   //     logMainToFile('Sentry user context updated', { userId: userData?.id, email: userData?.email })
   //   }
   // )
+
+  // Linux-specific IPC handlers
+  ipcMain.handle('get-platform', () => {
+    return process.platform
+  })
+
+  ipcMain.handle('get-linux-dependencies', async () => {
+    if (process.platform !== 'linux') {
+      return null
+    }
+    const getAllDeps = getAllDependencies()
+    if (!getAllDeps) {
+      return null
+    }
+    try {
+      return await getAllDeps()
+    } catch (error) {
+      console.error('Error getting Linux dependencies:', error)
+      return null
+    }
+  })
 }

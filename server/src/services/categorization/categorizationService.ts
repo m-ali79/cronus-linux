@@ -2,7 +2,7 @@ import { UserModel } from 'src/models/user';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
 import { checkActivityHistory } from './history';
-import { getOpenAICategoryChoice, getOpenAISummaryForBlock } from './llm';
+import { getLLMCategoryChoice, getLLMSummaryForBlock } from './llm';
 
 export interface CategorizationResult {
   categoryId: string | null;
@@ -49,7 +49,7 @@ export async function categorizeActivity(
   }));
 
   // TODO-maybe: could add "unclear" here and then check the screenshot etc
-  const choice = await getOpenAICategoryChoice(
+  const choice = await getLLMCategoryChoice(
     userProjectsAndGoals,
     categoryNamesForLLM,
     activeWindow
@@ -86,7 +86,7 @@ export async function categorizeActivity(
   const isReasoningMissingOrShort = !categoryReasoning || categoryReasoning.length < 10;
 
   if (isLongBlock && isReasoningMissingOrShort) {
-    const summary = await getOpenAISummaryForBlock(activeWindow);
+    const summary = await getLLMSummaryForBlock(activeWindow);
     if (summary) {
       categoryReasoning = summary;
     }

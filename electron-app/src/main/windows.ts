@@ -1,9 +1,7 @@
 import { is } from '@electron-toolkit/utils'
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, nativeTheme, screen } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
-
-const { nativeTheme } = require('electron')
 
 // Quit handling state
 let allowForcedQuit = false
@@ -160,6 +158,26 @@ export function createMainWindow(
 
   if (is.dev) {
     mainWindow.webContents.openDevTools({ mode: 'bottom' })
+
+    // Suppress Chrome DevTools Autofill protocol errors (harmless but noisy)
+    // These errors come from Chromium's internal DevTools protocol client
+    // Using the new Event API format to avoid deprecation warnings
+    mainWindow.webContents.on('console-message', (event) => {
+      const { message, sourceId } = event
+      // Filter out Autofill protocol errors from DevTools internal code
+      if (
+        sourceId?.includes('devtools://') &&
+        (message.includes('Autofill.enable') ||
+          message.includes('Autofill.setAddresses') ||
+          message.includes("'Autofill.enable' wasn't found") ||
+          message.includes("'Autofill.setAddresses' wasn't found") ||
+          message.includes('Request Autofill.enable failed') ||
+          message.includes('Request Autofill.setAddresses failed'))
+      ) {
+        // Suppress these specific DevTools protocol errors
+        event.preventDefault()
+      }
+    })
   }
 
   mainWindow.webContents.on('did-finish-load', () => {

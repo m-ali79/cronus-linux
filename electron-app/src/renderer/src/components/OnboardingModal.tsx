@@ -76,6 +76,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     isScreenRecordingStep,
     isWelcomeStep,
     isPosthogOptInStep,
+    isLinuxDependenciesStep,
+    linuxDepsInstalled,
     handleNext: handleStepNext,
     handleBack,
     handleSkipToEnd
@@ -279,6 +281,16 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                       )}
                     </Button>
                   </>
+                ) : isLinuxDependenciesStep ? (
+                  <Button
+                    onClick={handleNext}
+                    disabled={!linuxDepsInstalled}
+                    variant="default"
+                    size="default"
+                    className="min-w-[140px]"
+                  >
+                    {linuxDepsInstalled ? 'Continue' : 'Checking Dependencies...'}
+                  </Button>
                 ) : (
                   <Button
                     onClick={handleNext}

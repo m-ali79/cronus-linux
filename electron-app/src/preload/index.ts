@@ -1,6 +1,6 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
-import { ActiveWindowDetails } from 'shared/dist/types.js'
+import type { ActiveWindowDetails } from 'shared/types'
 import { UpdateStatus } from '../shared/update'
 
 // Permission types and status enums (match the native layer)
@@ -21,6 +21,17 @@ export interface PermissionInfo {
   status: PermissionStatus
   name: string
   description: string
+}
+
+// Linux dependency info type
+export interface LinuxDependencyInfo {
+  type: number
+  name: string
+  installed: boolean
+  required: boolean
+  version?: string
+  purpose: string
+  installCommand: string
 }
 
 // Custom APIs for renderer
@@ -48,6 +59,7 @@ const api = {
     ipcRenderer.send('show-notification', options)
   },
   getEnvVariables: () => ipcRenderer.invoke('get-env-vars'),
+  fetchAuthCode: (): Promise<string | null> => ipcRenderer.invoke('fetch-auth-code'),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
   onDisplayRecategorizePage: (callback: (activity: ActivityToRecategorize) => void) => {
@@ -98,7 +110,14 @@ const api = {
   // ) => ipcRenderer.invoke('set-sentry-user', userData)
 
   // Add these two methods for quit confirmation
-  confirmQuit: () => ipcRenderer.invoke('confirm-quit')
+  confirmQuit: () => ipcRenderer.invoke('confirm-quit'),
+
+  // Platform detection
+  getPlatform: (): Promise<string> => ipcRenderer.invoke('get-platform'),
+
+  // Linux-specific methods
+  getLinuxDependencies: (): Promise<LinuxDependencyInfo[] | null> =>
+    ipcRenderer.invoke('get-linux-dependencies')
 }
 
 export interface ActivityToRecategorize {

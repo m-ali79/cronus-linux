@@ -1,7 +1,7 @@
 import { History, PlusCircle } from 'lucide-react'
 import { forwardRef, useEffect, useRef, useState } from 'react'
 import { type ComparableCategory } from 'shared/categories'
-import { type Category } from 'shared/dist/types'
+import type { Category } from 'shared/types'
 
 type HistoryItem = {
   title: string | null
