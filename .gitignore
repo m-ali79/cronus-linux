@@ -75,7 +75,6 @@ next-env.d.ts
 # NextJS client build output
 nextjs-client/out/
 
-# Local-only / private artifacts (do not publish)
 docs/
 .agents/
 .sisyphus/
