@@ -76,5 +76,6 @@ next-env.d.ts
 nextjs-client/out/
 
 docs/
+.worktrees/
 .agents/
 .sisyphus/
