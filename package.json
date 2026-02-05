@@ -3,11 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "client",
     "electron-app",
     "server",
-    "shared",
-    "scraper"
+    "shared"
   ],
   "scripts": {
     "dev": "bun --filter '*' dev",
