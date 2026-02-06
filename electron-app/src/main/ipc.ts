@@ -157,12 +157,9 @@ export async function registerIpcHandlers(
     return getNativeWindows().getPermissionDialogsEnabled()
   })
 
-  ipcMain.handle(
-    'get-permission-status',
-    (_event, permissionType: number) => {
-      return getNativeWindows().getPermissionStatus(permissionType)
-    }
-  )
+  ipcMain.handle('get-permission-status', (_event, permissionType: number) => {
+    return getNativeWindows().getPermissionStatus(permissionType)
+  })
 
   ipcMain.handle('get-permissions-for-title-extraction', () => {
     return getNativeWindows().hasPermissionsForTitleExtraction()
@@ -172,13 +169,10 @@ export async function registerIpcHandlers(
     return getNativeWindows().hasPermissionsForContentExtraction()
   })
 
-  ipcMain.handle(
-    'request-permission',
-    (_event, permissionType: number) => {
-      logMainToFile(`Manually requesting permission: ${permissionType}`)
-      getNativeWindows().requestPermission(permissionType)
-    }
-  )
+  ipcMain.handle('request-permission', (_event, permissionType: number) => {
+    logMainToFile(`Manually requesting permission: ${permissionType}`)
+    getNativeWindows().requestPermission(permissionType)
+  })
 
   ipcMain.handle('force-enable-permission-requests', () => {
     logMainToFile('Force enabling explicit permission requests via settings')
@@ -296,9 +290,12 @@ export async function registerIpcHandlers(
     }
   })
 
-  const checkCategorizationFromMain = async (
-    payload: { ownerName: string; type: string; title: string; url?: string | null }
-  ): Promise<{
+  const checkCategorizationFromMain = async (payload: {
+    ownerName: string
+    type: string
+    title: string
+    url?: string | null
+  }): Promise<{
     isCategorized: boolean
     categoryId?: string
     categoryReasoning?: string
@@ -338,7 +335,16 @@ export async function registerIpcHandlers(
     checkCategorizationFromMain(payload)
   )
 
-  const n = getNativeWindows() as { setCheckCategorizationProvider?: (fn: (payload: { ownerName: string; type: string; title: string; url?: string | null }) => Promise<{ isCategorized: boolean; content?: string }>) => void }
+  const n = getNativeWindows() as {
+    setCheckCategorizationProvider?: (
+      fn: (payload: {
+        ownerName: string
+        type: string
+        title: string
+        url?: string | null
+      }) => Promise<{ isCategorized: boolean; content?: string }>
+    ) => void
+  }
   if (n.setCheckCategorizationProvider) {
     n.setCheckCategorizationProvider(checkCategorizationFromMain)
   }

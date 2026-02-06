@@ -13,10 +13,7 @@ import { browserTracker } from './browser/browserTracker'
 import { screenshotManager } from './screenshot/screenshotManager'
 import { systemEventObserver } from './system/systemEventObserver'
 import { hasPermissionsForContentExtraction } from './permissions/dependencyChecker'
-import {
-  createStabilizingWrapper,
-  TRACKER_STABILIZATION_PERIOD_MS
-} from './trackingCoordinator'
+import { createStabilizingWrapper, TRACKER_STABILIZATION_PERIOD_MS } from './trackingCoordinator'
 import { LinuxDependencyType, DependencyStatus, ScreenshotResult } from './types'
 
 // Re-export types for consumers

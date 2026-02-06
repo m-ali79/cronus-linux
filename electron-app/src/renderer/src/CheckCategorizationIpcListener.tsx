@@ -9,27 +9,25 @@ export function CheckCategorizationIpcListener(): null {
   const utils = trpc.useUtils()
 
   useEffect(() => {
-    const cleanup = window.api.onCheckCategorizationRequest(
-      async (payload, replyChannel) => {
-        const token = localStorage.getItem('accessToken')
-        if (!token) {
-          window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
-          return
-        }
-        try {
-          const result = await utils.client.activeWindowEvents.checkCategorization.query({
-            token,
-            ownerName: payload.ownerName,
-            type: payload.type as 'window' | 'browser' | 'system',
-            title: payload.title,
-            url: payload.url ?? undefined
-          })
-          window.api.sendCheckCategorizationResult(replyChannel, result)
-        } catch {
-          window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
-        }
+    const cleanup = window.api.onCheckCategorizationRequest(async (payload, replyChannel) => {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
+        return
       }
-    )
+      try {
+        const result = await utils.client.activeWindowEvents.checkCategorization.query({
+          token,
+          ownerName: payload.ownerName,
+          type: payload.type as 'window' | 'browser' | 'system',
+          title: payload.title,
+          url: payload.url ?? undefined
+        })
+        window.api.sendCheckCategorizationResult(replyChannel, result)
+      } catch {
+        window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
+      }
+    })
     return cleanup
   }, [utils])
 
