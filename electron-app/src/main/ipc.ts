@@ -157,12 +157,9 @@ export async function registerIpcHandlers(
     return getNativeWindows().getPermissionDialogsEnabled()
   })
 
-  ipcMain.handle(
-    'get-permission-status',
-    (_event, permissionType: number) => {
-      return getNativeWindows().getPermissionStatus(permissionType)
-    }
-  )
+  ipcMain.handle('get-permission-status', (_event, permissionType: number) => {
+    return getNativeWindows().getPermissionStatus(permissionType)
+  })
 
   ipcMain.handle('get-permissions-for-title-extraction', () => {
     return getNativeWindows().hasPermissionsForTitleExtraction()
@@ -172,13 +169,10 @@ export async function registerIpcHandlers(
     return getNativeWindows().hasPermissionsForContentExtraction()
   })
 
-  ipcMain.handle(
-    'request-permission',
-    (_event, permissionType: number) => {
-      logMainToFile(`Manually requesting permission: ${permissionType}`)
-      getNativeWindows().requestPermission(permissionType)
-    }
-  )
+  ipcMain.handle('request-permission', (_event, permissionType: number) => {
+    logMainToFile(`Manually requesting permission: ${permissionType}`)
+    getNativeWindows().requestPermission(permissionType)
+  })
 
   ipcMain.handle('force-enable-permission-requests', () => {
     logMainToFile('Force enabling explicit permission requests via settings')
@@ -295,6 +289,65 @@ export async function registerIpcHandlers(
       return { success: false, error: String(error) }
     }
   })
+
+  const checkCategorizationFromMain = async (payload: {
+    ownerName: string
+    type: string
+    title: string
+    url?: string | null
+  }): Promise<{
+    isCategorized: boolean
+    categoryId?: string
+    categoryReasoning?: string
+    llmSummary?: string
+    content?: string
+  }> => {
+    if (!windows.mainWindow || windows.mainWindow.isDestroyed()) {
+      return { isCategorized: false }
+    }
+    const replyChannel = `check-categorization-reply-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        ipcMain.removeAllListeners(replyChannel)
+        resolve({ isCategorized: false })
+      }, 15000)
+      ipcMain.once(
+        replyChannel,
+        (
+          _e: Electron.IpcMainEvent,
+          result: {
+            isCategorized: boolean
+            categoryId?: string
+            categoryReasoning?: string
+            llmSummary?: string
+            content?: string
+          }
+        ) => {
+          clearTimeout(timeout)
+          resolve(result)
+        }
+      )
+      windows.mainWindow!.webContents.send('check-categorization-request', payload, replyChannel)
+    })
+  }
+
+  ipcMain.handle('check-categorization', async (_event, payload) =>
+    checkCategorizationFromMain(payload)
+  )
+
+  const n = getNativeWindows() as {
+    setCheckCategorizationProvider?: (
+      fn: (payload: {
+        ownerName: string
+        type: string
+        title: string
+        url?: string | null
+      }) => Promise<{ isCategorized: boolean; content?: string }>
+    ) => void
+  }
+  if (n.setCheckCategorizationProvider) {
+    n.setCheckCategorizationProvider(checkCategorizationFromMain)
+  }
 
   ipcMain.handle('redact-sensitive-content', (_event, content: string) => {
     return redactSensitiveContent(content)

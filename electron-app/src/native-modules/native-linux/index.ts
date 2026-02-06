@@ -13,6 +13,7 @@ import { browserTracker } from './browser/browserTracker'
 import { screenshotManager } from './screenshot/screenshotManager'
 import { systemEventObserver } from './system/systemEventObserver'
 import { hasPermissionsForContentExtraction } from './permissions/dependencyChecker'
+import { createStabilizingWrapper, TRACKER_STABILIZATION_PERIOD_MS } from './trackingCoordinator'
 import { LinuxDependencyType, DependencyStatus, ScreenshotResult } from './types'
 
 // Re-export types for consumers
@@ -42,10 +43,27 @@ export enum PermissionStatus {
 /**
  * NativeLinux class - implements same interface as NativeWindows (macOS)
  */
+type CheckCategorizationPayload = {
+  ownerName: string
+  type: string
+  title: string
+  url?: string | null
+}
+type CheckCategorizationResult = { isCategorized: boolean; content?: string }
+
 class NativeLinux {
   private permissionDialogsEnabled = false
   private isObserving = false
   private windowCallback: ((details: ActiveWindowDetails | null) => void) | null = null
+  private checkCategorizationProvider?: (
+    payload: CheckCategorizationPayload
+  ) => Promise<CheckCategorizationResult>
+
+  public setCheckCategorizationProvider(
+    fn: (payload: CheckCategorizationPayload) => Promise<CheckCategorizationResult>
+  ): void {
+    this.checkCategorizationProvider = fn
+  }
 
   /**
    * Start observing active window changes
@@ -67,12 +85,13 @@ class NativeLinux {
    * Initialize all tracking components
    */
   private async initializeTracking(): Promise<void> {
+    const trackerStartTime = Date.now()
+
     try {
       // Initialize screenshot manager
       await screenshotManager.initialize()
 
-      // Start Hyprland window tracker
-      await hyprlandWindowTracker.start(async (details) => {
+      const innerCallback = async (details: ActiveWindowDetails | null) => {
         if (!this.isObserving || !this.windowCallback) return
 
         let enrichedDetails: ActiveWindowDetails | null = details
@@ -84,38 +103,61 @@ class NativeLinux {
             enrichedDetails = await browserTracker.enrichWithBrowserUrl(details)
           }
 
-          // Capture OCR synchronously after window switch debounce completes
-          // Multiple OCR instances are allowed since window switches are debounced to 10s
+          // Capture OCR after window switch debounce (stabilization drops events in first 10s)
           if ((await hasPermissionsForContentExtraction()) && enrichedDetails) {
-            try {
-              console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)
-              const ocrResult = await screenshotManager.captureAndOCR()
-              if (ocrResult.success && ocrResult.ocrText) {
-                enrichedDetails = {
-                  ...enrichedDetails,
-                  content: ocrResult.ocrText,
-                  contentSource: 'ocr' as const,
-                  localScreenshotPath: ocrResult.imagePath || null
+            let skipOcr = false
+            if (this.checkCategorizationProvider) {
+              try {
+                const checkResult = await this.checkCategorizationProvider({
+                  ownerName: enrichedDetails.ownerName,
+                  type: enrichedDetails.type,
+                  title: enrichedDetails.title ?? '',
+                  url: enrichedDetails.url ?? null
+                })
+                if (checkResult.isCategorized && checkResult.content != null) {
+                  enrichedDetails = {
+                    ...enrichedDetails,
+                    content: checkResult.content,
+                    contentSource: 'ocr' as const
+                  }
+                  skipOcr = true
+                  console.log(
+                    `[OCR] Skipped OCR for ${enrichedDetails.ownerName} (already categorized, reusing content)`
+                  )
                 }
-                console.log(
-                  `[OCR] OCR completed for ${enrichedDetails.ownerName}: ${ocrResult.ocrText.length} chars`
-                )
-              } else if (ocrResult.error) {
-                console.warn(
-                  `[OCR] OCR failed for ${enrichedDetails.ownerName}: ${ocrResult.error}`
-                )
+              } catch {
+                /* fail-open: run OCR below */
               }
-            } catch (error) {
-              console.error(`[OCR] OCR error for ${enrichedDetails.ownerName}:`, error)
+            }
+            if (!skipOcr) {
+              try {
+                console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)
+                const ocrResult = await screenshotManager.captureAndOCR()
+                if (ocrResult.success && ocrResult.ocrText) {
+                  enrichedDetails = {
+                    ...enrichedDetails,
+                    content: ocrResult.ocrText,
+                    contentSource: 'ocr' as const,
+                    localScreenshotPath: ocrResult.imagePath || null
+                  }
+                  console.log(
+                    `[OCR] OCR completed for ${enrichedDetails.ownerName}: ${ocrResult.ocrText.length} chars`
+                  )
+                } else if (ocrResult.error) {
+                  console.warn(
+                    `[OCR] OCR failed for ${enrichedDetails.ownerName}: ${ocrResult.error}`
+                  )
+                }
+              } catch (error) {
+                console.error(`[OCR] OCR error for ${enrichedDetails.ownerName}:`, error)
+              }
             }
           }
         }
 
-        // Convert to JSON string and back (matching macOS native module behavior)
         const jsonString = JSON.stringify(enrichedDetails)
         try {
           const parsed = JSON.parse(jsonString)
-          // Map windowId like macOS wrapper does
           const mapped: ActiveWindowDetails = {
             ...parsed,
             windowId: parsed.windowId || 0
@@ -125,16 +167,20 @@ class NativeLinux {
           console.error('[NativeLinux] Error processing window details:', error)
           this.windowCallback(null)
         }
-      })
+      }
 
-      // Start browser tracker
+      const wrappedCallback = createStabilizingWrapper(
+        trackerStartTime,
+        TRACKER_STABILIZATION_PERIOD_MS,
+        innerCallback
+      )
+
+      await hyprlandWindowTracker.start(wrappedCallback)
+
       await browserTracker.start()
 
-      // Start system event observer
       await systemEventObserver.start((event) => {
-        if (this.isObserving && this.windowCallback) {
-          this.windowCallback(event)
-        }
+        wrappedCallback(event)
       })
 
       console.log('[NativeLinux] All tracking components started')

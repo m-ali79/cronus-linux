@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import mongoose, { FilterQuery } from 'mongoose';
 import { categorizeActivity } from 'src/services/categorization/categorizationService';
+import { checkActivityHistory } from 'src/services/categorization/history';
 import { z } from 'zod';
 import { ActiveWindowEvent } from '../../../shared/types';
 import { safeVerifyToken, safeVerifyTokenWithVersionTracking } from '../lib/authUtils';
@@ -94,6 +95,41 @@ export const activeWindowEventsRouter = router({
       });
     }
   }),
+
+  checkCategorization: publicProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        ownerName: z.string(),
+        type: z.enum(['window', 'browser', 'system']),
+        title: z.string(),
+        url: z.string().optional().nullable(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const decoded = safeVerifyToken(input.token);
+        const userId = decoded.userId;
+        const historyResult = await checkActivityHistory(userId, {
+          ownerName: input.ownerName,
+          type: input.type,
+          title: input.title,
+          url: input.url ?? undefined,
+        });
+        if (historyResult) {
+          return {
+            isCategorized: true,
+            categoryId: historyResult.categoryId,
+            categoryReasoning: historyResult.categoryReasoning ?? undefined,
+            llmSummary: historyResult.llmSummary ?? undefined,
+            content: historyResult.content ?? undefined,
+          };
+        }
+        return { isCategorized: false };
+      } catch {
+        return { isCategorized: false };
+      }
+    }),
 
   getEventsForDateRange: publicProcedure
     .input(z.object({ token: z.string(), startDateMs: z.number(), endDateMs: z.number() }))

@@ -99,6 +99,36 @@ const api = {
     return () => ipcRenderer.removeListener('update-status', listener)
   },
   captureScreenshotAndOCR: () => ipcRenderer.invoke('capture-screenshot-and-ocr'),
+  checkCategorization: (payload: {
+    ownerName: string
+    type: string
+    title: string
+    url?: string | null
+  }) => ipcRenderer.invoke('check-categorization', payload),
+  onCheckCategorizationRequest: (
+    callback: (
+      payload: { ownerName: string; type: string; title: string; url?: string | null },
+      replyChannel: string
+    ) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { ownerName: string; type: string; title: string; url?: string | null },
+      replyChannel: string
+    ) => callback(payload, replyChannel)
+    ipcRenderer.on('check-categorization-request', listener)
+    return () => ipcRenderer.removeListener('check-categorization-request', listener)
+  },
+  sendCheckCategorizationResult: (
+    replyChannel: string,
+    result: {
+      isCategorized: boolean
+      categoryId?: string
+      categoryReasoning?: string
+      llmSummary?: string
+      content?: string
+    }
+  ) => ipcRenderer.send(replyChannel, result),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getBuildDate: () => ipcRenderer.invoke('get-build-date'),
   getAppIconPath: (appName: string): Promise<string | null> =>

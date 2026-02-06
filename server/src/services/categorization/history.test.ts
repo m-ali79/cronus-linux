@@ -11,6 +11,9 @@ const mockCategoryModel = {
   findById: jest.fn(),
   findOne: jest.fn(),
 };
+const mockUserModel = {
+  findById: jest.fn(),
+};
 
 // Use mock.module to replace the actual models with our mocks
 mock.module('../../models/activeWindowEvent', () => ({
@@ -18,6 +21,9 @@ mock.module('../../models/activeWindowEvent', () => ({
 }));
 mock.module('../../models/category', () => ({
   CategoryModel: mockCategoryModel,
+}));
+mock.module('../../models/user', () => ({
+  UserModel: mockUserModel,
 }));
 const { ActiveWindowEventModel } = await import('../../models/activeWindowEvent');
 const { CategoryModel } = await import('../../models/category');
@@ -29,6 +35,10 @@ describe('checkActivityHistory', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (mockUserModel.findById as ReturnType<typeof jest.fn>).mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue({ multiPurposeApps: [] }),
+    });
   });
 
   afterEach(() => {
@@ -77,6 +87,40 @@ describe('checkActivityHistory', () => {
       _id: mockRecruitingCategoryId,
       isArchived: false,
     });
+  });
+
+  test('should return content when matching event has content', async () => {
+    const activeWindow: Pick<ActiveWindowDetails, 'ownerName' | 'title' | 'url' | 'type'> = {
+      ownerName: 'Google Chrome',
+      type: 'browser',
+      title: 'Messaging candidates on LinkedIn Recruiter',
+      url: 'https://www.linkedin.com/recruiter/projects',
+    };
+
+    const mockPreviousEvent = {
+      _id: new mongoose.Types.ObjectId().toString(),
+      userId: mockUserId,
+      url: activeWindow.url,
+      categoryId: mockRecruitingCategoryId,
+      categoryReasoning: 'Recruiting',
+      llmSummary: 'LinkedIn Recruiter',
+      content: 'Previous OCR text content',
+    };
+
+    (ActiveWindowEventModel.findOne as jest.Mock).mockReturnValue({
+      sort: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(mockPreviousEvent),
+    });
+
+    (CategoryModel.findOne as jest.Mock).mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: mockRecruitingCategoryId, name: 'Recruiting' }),
+    });
+
+    const result = await checkActivityHistory(mockUserId, activeWindow);
+
+    expect(result?.categoryId).toBe(mockRecruitingCategoryId);
+    expect(result?.content).toBe('Previous OCR text content');
   });
 
   test('should return category from history for a Cursor project', async () => {

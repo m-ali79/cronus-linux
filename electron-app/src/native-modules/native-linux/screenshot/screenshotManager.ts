@@ -25,6 +25,28 @@ const DEFAULT_SETTINGS: ScreenshotSettings = {
 // Max OCR text length (matching macOS)
 const MAX_OCR_TEXT_LENGTH = 2000
 
+// OCR timeout (ms)
+const OCR_TIMEOUT_MS = 60_000
+
+// Tessdata: prefer fast, fallback to default (best)
+const TESSDATA_FAST_DIR = '/usr/share/tessdata_fast'
+const TESSDATA_FAST_ENG = path.join(TESSDATA_FAST_DIR, 'eng.traineddata')
+
+export async function resolveTessdataEnv(): Promise<{
+  env?: NodeJS.ProcessEnv
+  label: string
+}> {
+  try {
+    await fs.access(TESSDATA_FAST_ENG)
+    return {
+      env: { ...process.env, TESSDATA_PREFIX: TESSDATA_FAST_DIR + path.sep },
+      label: 'tessdata_fast'
+    }
+  } catch {
+    return { label: 'tessdata_best (fast not available)' }
+  }
+}
+
 // Per-folder write queue to prevent concurrent metadata.json RMW races.
 const metadataWriteQueueByFolder = new Map<string, Promise<void>>()
 
@@ -146,19 +168,19 @@ export class ScreenshotManager {
   }
 
   /**
-   * Perform OCR on an existing image
-   * Note: Multiple OCR instances are allowed since window switches are debounced to 10s
+   * Perform OCR on an existing image. Uses tessdata_fast when available, else default (best). Timeout 60s.
    */
   async performOCR(imagePath: string): Promise<string | undefined> {
     try {
+      const { env, label } = await resolveTessdataEnv()
+      console.log(`[OCR] Using ${label}`)
       console.log(`[OCR] Starting OCR for ${imagePath}`)
       const { stdout } = await execFileAsync(
         'tesseract',
         [imagePath, 'stdout', '-l', this.settings.ocrLanguage, '--psm', '6', 'quiet'],
-        { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }
+        { timeout: OCR_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024, env }
       )
 
-      // Truncate to max length
       let text = stdout.trim()
       if (text.length > MAX_OCR_TEXT_LENGTH) {
         text = text.substring(0, MAX_OCR_TEXT_LENGTH)

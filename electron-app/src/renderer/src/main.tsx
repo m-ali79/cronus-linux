@@ -6,6 +6,7 @@ import { PostHogProvider } from 'posthog-js/react'
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './AppWrapper'
+import { CheckCategorizationIpcListener } from './CheckCategorizationIpcListener'
 import { AuthProvider } from './contexts/AuthContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -44,6 +45,7 @@ const Main = () => {
       <PostHogProvider apiKey={posthogKey || ''} options={options}>
         <trpc.Provider client={trpcClientInstance} queryClient={queryClient}>
           <QueryClientProvider client={queryClient}>
+            <CheckCategorizationIpcListener />
             <AuthProvider>
               <ThemeProvider>
                 <SettingsProvider>

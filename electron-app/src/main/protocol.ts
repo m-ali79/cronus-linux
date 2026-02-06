@@ -4,13 +4,32 @@ const PROTOCOL_SCHEME = 'cronus'
 let urlToHandleOnReady: string | null = null
 const PROTOCOL_PREFIX = `${PROTOCOL_SCHEME}://`
 
+// Handle EPIPE errors gracefully to prevent uncaught exceptions
+// when stdout/stderr is closed (e.g., during second instance termination)
+function safeLog(...args: unknown[]): void {
+  try {
+    console.log(...args)
+  } catch {
+    // Stdout might be closed, ignore
+  }
+}
+
+// Gracefully exit after ensuring logs are flushed
+function gracefulExit(code: number): void {
+  // Use setImmediate to allow the event loop to flush console buffers
+  // before exiting. This prevents EPIPE errors from incomplete writes.
+  setImmediate(() => {
+    process.exit(code)
+  })
+}
+
 export function handleAppUrl(url: string, mainWindow: BrowserWindow | null): void {
   let code: string | null = null
   try {
     const parsedUrl = new URL(url)
     code = parsedUrl.searchParams.get('code')
   } catch (e) {
-    console.error('[Protocol] Parse Error:', e)
+    safeLog('[Protocol] Parse Error:', e)
   }
 
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -39,13 +58,14 @@ export function setupSingleInstanceLock(getMainWindow: () => BrowserWindow | nul
   const gotTheLock = app.requestSingleInstanceLock()
 
   if (!gotTheLock) {
-    console.log('!!! SECOND INSTANCE DETECTED - KILLING PROCESS !!!')
-    app.exit(0) // app.exit is more aggressive than app.quit()
+    safeLog('!!! SECOND INSTANCE DETECTED - KILLING PROCESS !!!')
+    // Gracefully exit to ensure logs are flushed and prevent EPIPE errors
+    gracefulExit(0)
     return false
   }
 
   app.on('second-instance', (_event, commandLine) => {
-    console.log('Received data from second instance...')
+    safeLog('Received data from second instance...')
     const mainWindow = getMainWindow()
     // On Linux the protocol URL can appear in a variety of argv shapes depending on the `.desktop` Exec.
     // Examples:
