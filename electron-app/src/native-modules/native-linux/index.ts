@@ -46,10 +46,27 @@ export enum PermissionStatus {
 /**
  * NativeLinux class - implements same interface as NativeWindows (macOS)
  */
+type CheckCategorizationPayload = {
+  ownerName: string
+  type: string
+  title: string
+  url?: string | null
+}
+type CheckCategorizationResult = { isCategorized: boolean; content?: string }
+
 class NativeLinux {
   private permissionDialogsEnabled = false
   private isObserving = false
   private windowCallback: ((details: ActiveWindowDetails | null) => void) | null = null
+  private checkCategorizationProvider?: (
+    payload: CheckCategorizationPayload
+  ) => Promise<CheckCategorizationResult>
+
+  public setCheckCategorizationProvider(
+    fn: (payload: CheckCategorizationPayload) => Promise<CheckCategorizationResult>
+  ): void {
+    this.checkCategorizationProvider = fn
+  }
 
   /**
    * Start observing active window changes
@@ -91,26 +108,52 @@ class NativeLinux {
 
           // Capture OCR after window switch debounce (stabilization drops events in first 10s)
           if ((await hasPermissionsForContentExtraction()) && enrichedDetails) {
-            try {
-              console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)
-              const ocrResult = await screenshotManager.captureAndOCR()
-              if (ocrResult.success && ocrResult.ocrText) {
-                enrichedDetails = {
-                  ...enrichedDetails,
-                  content: ocrResult.ocrText,
-                  contentSource: 'ocr' as const,
-                  localScreenshotPath: ocrResult.imagePath || null
+            let skipOcr = false
+            if (this.checkCategorizationProvider) {
+              try {
+                const checkResult = await this.checkCategorizationProvider({
+                  ownerName: enrichedDetails.ownerName,
+                  type: enrichedDetails.type,
+                  title: enrichedDetails.title ?? '',
+                  url: enrichedDetails.url ?? null
+                })
+                if (checkResult.isCategorized && checkResult.content != null) {
+                  enrichedDetails = {
+                    ...enrichedDetails,
+                    content: checkResult.content,
+                    contentSource: 'ocr' as const
+                  }
+                  skipOcr = true
+                  console.log(
+                    `[OCR] Skipped OCR for ${enrichedDetails.ownerName} (already categorized, reusing content)`
+                  )
                 }
-                console.log(
-                  `[OCR] OCR completed for ${enrichedDetails.ownerName}: ${ocrResult.ocrText.length} chars`
-                )
-              } else if (ocrResult.error) {
-                console.warn(
-                  `[OCR] OCR failed for ${enrichedDetails.ownerName}: ${ocrResult.error}`
-                )
+              } catch {
+                /* fail-open: run OCR below */
               }
-            } catch (error) {
-              console.error(`[OCR] OCR error for ${enrichedDetails.ownerName}:`, error)
+            }
+            if (!skipOcr) {
+              try {
+                console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)
+                const ocrResult = await screenshotManager.captureAndOCR()
+                if (ocrResult.success && ocrResult.ocrText) {
+                  enrichedDetails = {
+                    ...enrichedDetails,
+                    content: ocrResult.ocrText,
+                    contentSource: 'ocr' as const,
+                    localScreenshotPath: ocrResult.imagePath || null
+                  }
+                  console.log(
+                    `[OCR] OCR completed for ${enrichedDetails.ownerName}: ${ocrResult.ocrText.length} chars`
+                  )
+                } else if (ocrResult.error) {
+                  console.warn(
+                    `[OCR] OCR failed for ${enrichedDetails.ownerName}: ${ocrResult.error}`
+                  )
+                }
+              } catch (error) {
+                console.error(`[OCR] OCR error for ${enrichedDetails.ownerName}:`, error)
+              }
             }
           }
         }
