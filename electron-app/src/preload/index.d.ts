@@ -97,6 +97,34 @@ declare global {
         ocrText?: string
         error?: string
       }>
+      checkCategorization: (payload: {
+        ownerName: string
+        type: string
+        title: string
+        url?: string | null
+      }) => Promise<{
+        isCategorized: boolean
+        categoryId?: string
+        categoryReasoning?: string
+        llmSummary?: string
+        content?: string
+      }>
+      onCheckCategorizationRequest: (
+        callback: (
+          payload: { ownerName: string; type: string; title: string; url?: string | null },
+          replyChannel: string
+        ) => void
+      ) => () => void
+      sendCheckCategorizationResult: (
+        replyChannel: string,
+        result: {
+          isCategorized: boolean
+          categoryId?: string
+          categoryReasoning?: string
+          llmSummary?: string
+          content?: string
+        }
+      ) => void
       getAppVersion: () => Promise<string>
       getBuildDate: () => Promise<string>
       getAppIconPath: (appName: string) => Promise<string | null>

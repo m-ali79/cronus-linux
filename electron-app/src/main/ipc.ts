@@ -296,6 +296,36 @@ export async function registerIpcHandlers(
     }
   })
 
+  ipcMain.handle(
+    'check-categorization',
+    async (
+      _event,
+      payload: { ownerName: string; type: string; title: string; url?: string | null }
+    ) => {
+      if (!windows.mainWindow || windows.mainWindow.isDestroyed()) {
+        return { isCategorized: false }
+      }
+      const replyChannel = `check-categorization-reply-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      return new Promise<{
+        isCategorized: boolean
+        categoryId?: string
+        categoryReasoning?: string
+        llmSummary?: string
+        content?: string
+      }>((resolve) => {
+        const timeout = setTimeout(() => {
+          ipcMain.removeAllListeners(replyChannel)
+          resolve({ isCategorized: false })
+        }, 15000)
+        ipcMain.once(replyChannel, (_e, result: { isCategorized: boolean; categoryId?: string; categoryReasoning?: string; llmSummary?: string; content?: string }) => {
+          clearTimeout(timeout)
+          resolve(result)
+        })
+        windows.mainWindow!.webContents.send('check-categorization-request', payload, replyChannel)
+      })
+    }
+  )
+
   ipcMain.handle('redact-sensitive-content', (_event, content: string) => {
     return redactSensitiveContent(content)
   })
