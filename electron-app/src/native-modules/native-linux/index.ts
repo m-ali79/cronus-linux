@@ -13,6 +13,10 @@ import { browserTracker } from './browser/browserTracker'
 import { screenshotManager } from './screenshot/screenshotManager'
 import { systemEventObserver } from './system/systemEventObserver'
 import { hasPermissionsForContentExtraction } from './permissions/dependencyChecker'
+import {
+  createStabilizingWrapper,
+  TRACKER_STABILIZATION_PERIOD_MS
+} from './trackingCoordinator'
 import { LinuxDependencyType, DependencyStatus, ScreenshotResult } from './types'
 
 // Re-export types for consumers
@@ -67,12 +71,13 @@ class NativeLinux {
    * Initialize all tracking components
    */
   private async initializeTracking(): Promise<void> {
+    const trackerStartTime = Date.now()
+
     try {
       // Initialize screenshot manager
       await screenshotManager.initialize()
 
-      // Start Hyprland window tracker
-      await hyprlandWindowTracker.start(async (details) => {
+      const innerCallback = async (details: ActiveWindowDetails | null) => {
         if (!this.isObserving || !this.windowCallback) return
 
         let enrichedDetails: ActiveWindowDetails | null = details
@@ -84,8 +89,7 @@ class NativeLinux {
             enrichedDetails = await browserTracker.enrichWithBrowserUrl(details)
           }
 
-          // Capture OCR synchronously after window switch debounce completes
-          // Multiple OCR instances are allowed since window switches are debounced to 10s
+          // Capture OCR after window switch debounce (stabilization drops events in first 10s)
           if ((await hasPermissionsForContentExtraction()) && enrichedDetails) {
             try {
               console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)
@@ -111,11 +115,9 @@ class NativeLinux {
           }
         }
 
-        // Convert to JSON string and back (matching macOS native module behavior)
         const jsonString = JSON.stringify(enrichedDetails)
         try {
           const parsed = JSON.parse(jsonString)
-          // Map windowId like macOS wrapper does
           const mapped: ActiveWindowDetails = {
             ...parsed,
             windowId: parsed.windowId || 0
@@ -125,16 +127,20 @@ class NativeLinux {
           console.error('[NativeLinux] Error processing window details:', error)
           this.windowCallback(null)
         }
-      })
+      }
 
-      // Start browser tracker
+      const wrappedCallback = createStabilizingWrapper(
+        trackerStartTime,
+        TRACKER_STABILIZATION_PERIOD_MS,
+        innerCallback
+      )
+
+      await hyprlandWindowTracker.start(wrappedCallback)
+
       await browserTracker.start()
 
-      // Start system event observer
       await systemEventObserver.start((event) => {
-        if (this.isObserving && this.windowCallback) {
-          this.windowCallback(event)
-        }
+        wrappedCallback(event)
       })
 
       console.log('[NativeLinux] All tracking components started')
