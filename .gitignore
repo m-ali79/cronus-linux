@@ -79,3 +79,4 @@ docs/
 .worktrees/
 .agents/
 .sisyphus/
+.cursor/
