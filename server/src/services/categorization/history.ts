@@ -11,10 +11,11 @@ const getProjectNameFromTitle = (title: string): string | null => {
   return null;
 };
 
-interface HistoryResult {
+export interface HistoryResult {
   categoryId: string;
   categoryReasoning: string | null;
   llmSummary: string | null;
+  content?: string | null;
 }
 
 export async function checkActivityHistory(
@@ -70,7 +71,7 @@ export async function checkActivityHistory(
 
     const lastEventWithSameIdentifier = await ActiveWindowEventModel.findOne(queryCondition)
       .sort({ timestamp: -1 })
-      .select('categoryId categoryReasoning llmSummary')
+      .select('categoryId categoryReasoning llmSummary content')
       .lean();
 
     if (lastEventWithSameIdentifier && lastEventWithSameIdentifier.categoryId) {
@@ -86,6 +87,10 @@ export async function checkActivityHistory(
           categoryId,
           categoryReasoning: (lastEventWithSameIdentifier.categoryReasoning as string) || null,
           llmSummary: (lastEventWithSameIdentifier.llmSummary as string) || null,
+          content:
+            lastEventWithSameIdentifier.content !== undefined
+              ? (lastEventWithSameIdentifier.content as string) ?? null
+              : undefined,
         };
       }
     }
