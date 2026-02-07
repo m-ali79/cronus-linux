@@ -233,6 +233,15 @@ const DistractionStatusBar = ({
       }
     )
 
+  // Fetch user goals for rich notifications
+  const { data: userGoals } = trpc.user.getUserProjectsAndGoals.useQuery(
+    { token: token || '' },
+    {
+      enabled: !!token && typeof token === 'string' && token.length > 0,
+      staleTime: 1000 * 60 * 5 // 5 minutes
+    }
+  )
+
   useDistractionSound(categoryDetails as Category | null | undefined)
 
   const displayWindowInfo = useMemo(
@@ -335,7 +344,12 @@ const DistractionStatusBar = ({
   useDistractionNotification(
     categoryDetails as Category | null | undefined,
     activeWindow,
-    statusText
+    statusText,
+    {
+      confidence: null, // TODO: Add confidence field to ActiveWindowEvent model and populate it
+      reasoning: latestEvent?.categoryReasoning || null,
+      goalName: userGoals || null
+    }
   )
 
   const cardBgColor = useMemo(
