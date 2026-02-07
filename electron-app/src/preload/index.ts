@@ -55,8 +55,22 @@ const api = {
   },
   getAudioDataUrl: () => ipcRenderer.invoke('get-audio-data-url'),
   logToFile: (message: string, data?: object) => ipcRenderer.send('log-to-file', message, data),
-  showNotification: (options: { title: string; body: string }) => {
+  showNotification: (options: {
+    title: string
+    body: string
+    actions?: Array<{ text: string; id: string }>
+    onAction?: (actionId: string) => void
+    timeout?: number
+    notificationId?: string
+  }) => {
     ipcRenderer.send('show-notification', options)
+  },
+  onNotificationAction: (callback: (actionId: string) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, actionId: string) => callback(actionId)
+    ipcRenderer.on('notification-action', listener)
+    return () => {
+      ipcRenderer.removeListener('notification-action', listener)
+    }
   },
   getEnvVariables: () => ipcRenderer.invoke('get-env-vars'),
   fetchAuthCode: (): Promise<string | null> => ipcRenderer.invoke('fetch-auth-code'),

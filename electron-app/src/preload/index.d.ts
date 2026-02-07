@@ -64,7 +64,7 @@ declare global {
       onAuthCodeReceived: (callback: (code: string) => void) => () => void // Return type for cleanup function
       onActiveWindowChanged: (callback: (details: ActiveWindowDetails) => void) => () => void // Return type for cleanup function
       // Add the new function's type signature here
-      getEnvVariables: () => Promise<{ GOOGLE_CLIENT_ID?: string;[key: string]: unknown }>
+      getEnvVariables: () => Promise<{ GOOGLE_CLIENT_ID?: string; [key: string]: unknown }>
       fetchAuthCode: () => Promise<string | null>
 
       readFile: (filePath: string) => Promise<ArrayBuffer>
@@ -75,7 +75,15 @@ declare global {
       getFloatingWindowVisibility: () => Promise<boolean>
       getAudioDataUrl: () => Promise<string | null>
       openExternalUrl: (url: string) => void
-      showNotification: (options: { title: string; body: string }) => void
+      showNotification: (options: {
+        title: string
+        body: string
+        actions?: Array<{ text: string; id: string }>
+        onAction?: (actionId: string) => void
+        timeout?: number
+        notificationId?: string
+      }) => void
+      onNotificationAction: (callback: (actionId: string) => void) => () => void
 
       // Permission-related methods
       getPermissionRequestStatus: () => Promise<boolean>

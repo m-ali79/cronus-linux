@@ -385,44 +385,111 @@ export async function registerIpcHandlers(
     }
   })
 
-  ipcMain.on('show-notification', (_event, { title, body }) => {
-    logMainToFile('Received show-notification request', { title, body })
-    if (Notification.isSupported()) {
-      const notification = new Notification({
+  ipcMain.on(
+    'show-notification',
+    (
+      _event,
+      {
         title,
         body,
-        icon: process.platform === 'win32' ? icon : undefined,
-        actions: [{ type: 'button', text: 'Edit' }]
-      })
+        actions = [],
+        onAction,
+        timeout,
+        notificationId
+      }: {
+        title: string
+        body: string
+        actions?: Array<{ text: string; id: string }>
+        onAction?: (actionId: string) => void
+        timeout?: number
+        notificationId?: string
+      }
+    ) => {
+      logMainToFile('Received show-notification request', { title, body, actions, notificationId })
+      if (Notification.isSupported()) {
+        // Convert actions to Electron notification format
+        const electronActions = actions.map((action) => ({
+          type: 'button' as const,
+          text: action.text
+        }))
 
-      notification.on('click', () => {
-        logMainToFile('Notification clicked. Focusing main window.')
-        if (windows.mainWindow && !windows.mainWindow.isDestroyed()) {
-          if (windows.mainWindow.isMinimized()) windows.mainWindow.restore()
-          windows.mainWindow.focus()
-        } else {
-          console.warn('Main window not available when notification clicked')
+        const notification = new Notification({
+          title,
+          body,
+          icon: process.platform === 'win32' ? icon : undefined,
+          actions:
+            electronActions.length > 0
+              ? electronActions
+              : [{ type: 'button' as const, text: 'Edit' }]
+        })
+
+        let timeoutTimer: NodeJS.Timeout | null = null
+        let actionHandled = false
+
+        const handleAction = (actionId: string) => {
+          if (actionHandled) return
+          actionHandled = true
+          if (timeoutTimer) clearTimeout(timeoutTimer)
+          logMainToFile(`Notification action handled: ${actionId}`)
+          if (onAction) {
+            onAction(actionId)
+          }
+          // Emit to renderer for useQuestioningNotification hook
+          if (
+            windows.mainWindow &&
+            !windows.mainWindow.isDestroyed() &&
+            !windows.mainWindow.webContents.isDestroyed()
+          ) {
+            windows.mainWindow.webContents.send('notification-action', actionId)
+          }
         }
-      })
 
-      notification.on('action', (_event, index) => {
-        logMainToFile(`Notification action clicked, index: ${index}`)
-        if (index === 0) {
-          // Corresponds to the 'Edit' button
+        notification.on('click', () => {
+          logMainToFile('Notification clicked. Focusing main window.')
+          if (windows.mainWindow && !windows.mainWindow.isDestroyed()) {
+            if (windows.mainWindow.isMinimized()) windows.mainWindow.restore()
+            windows.mainWindow.focus()
+          } else {
+            console.warn('Main window not available when notification clicked')
+          }
+        })
+
+        notification.on('action', (_event, index) => {
+          logMainToFile(`Notification action clicked, index: ${index}`)
+          if (actions.length > 0 && actions[index]) {
+            handleAction(actions[index].id)
+          } else if (index === 0) {
+            // Default 'Edit' button behavior
+            handleAction('edit')
+          }
           if (windows.mainWindow && !windows.mainWindow.isDestroyed()) {
             if (windows.mainWindow.isMinimized()) windows.mainWindow.restore()
             windows.mainWindow.focus()
           } else {
             console.warn('Main window not available when notification action clicked')
           }
-        }
-      })
+        })
 
-      notification.show()
-    } else {
-      logMainToFile('Notifications not supported on this system.')
+        // Handle timeout - auto-classify as distraction
+        if (timeout && timeout > 0) {
+          timeoutTimer = setTimeout(() => {
+            if (!actionHandled) {
+              logMainToFile(`Notification timeout (${timeout}ms), auto-classifying as distraction`)
+              handleAction('timeout')
+            }
+          }, timeout)
+        }
+
+        notification.on('close', () => {
+          if (timeoutTimer) clearTimeout(timeoutTimer)
+        })
+
+        notification.show()
+      } else {
+        logMainToFile('Notifications not supported on this system.')
+      }
     }
-  })
+  )
 
   // This is a workaround for the main window's webContents being unavailable
   // when the renderer is ready.
