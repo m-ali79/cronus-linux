@@ -9,6 +9,17 @@
     "src/native-modules/**/*",
     "src/shared/update.ts"
   ],
+  "exclude": [
+    "node_modules",
+    "src/native-modules/**/macos/**/*",
+    "src/native-modules/**/*.h",
+    "src/native-modules/**/*.mm",
+    "src/native-modules/**/*.cpp",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "out/**/*",
+    "dist/**/*"
+  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",

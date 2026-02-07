@@ -8,6 +8,17 @@
     "src/env.d.ts",
     "src/native-modules/**/*"
   ],
+  "exclude": [
+    "node_modules",
+    "src/native-modules/**/macos/**/*",
+    "src/native-modules/**/*.h",
+    "src/native-modules/**/*.mm",
+    "src/native-modules/**/*.cpp",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "out/**/*",
+    "dist/**/*"
+  ],
   "compilerOptions": {
     "composite": true,
     "types": ["electron-vite/node"],
