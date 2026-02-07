@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import { Sparkles, MessageSquarePlus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from '../../hooks/use-toast'
 import { trpc } from '../../utils/trpc'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Textarea } from '../ui/textarea'
+import { GoalChatQuestioning } from './GoalChatQuestioning'
 
 interface GoalInputFormProps {
   onboardingMode?: boolean
@@ -21,6 +23,8 @@ const GoalInputForm = ({
   const [userProjectsAndGoals, setUserProjectsAndGoals] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [useChatMode, setUseChatMode] = useState(false)
+  const [chatInitialGoal, setChatInitialGoal] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const hasContent = userProjectsAndGoals.trim().length > 0
@@ -38,6 +42,7 @@ const GoalInputForm = ({
         setUserProjectsAndGoals(data.userProjectsAndGoals)
       }
       setIsEditing(false)
+      setUseChatMode(false)
 
       if (!onboardingMode) {
         toast({
@@ -104,7 +109,28 @@ const GoalInputForm = ({
         setUserProjectsAndGoals(initialProjectsAndGoals)
       }
       setIsEditing(false)
+      setUseChatMode(false)
     }
+  }
+
+  const handleStartChatMode = () => {
+    const currentGoal = textareaRef.current?.value || userProjectsAndGoals
+    setChatInitialGoal(currentGoal)
+    setUseChatMode(true)
+  }
+
+  const handleChatSave = (refinedGoal: string) => {
+    setUserProjectsAndGoals(refinedGoal)
+    setIsSaving(true)
+    updateGoalsMutation.mutate({
+      token: token || '',
+      userProjectsAndGoals: refinedGoal
+    })
+  }
+
+  const handleChatCancel = () => {
+    setUseChatMode(false)
+    setChatInitialGoal('')
   }
 
   if (isLoading) {
@@ -117,6 +143,31 @@ const GoalInputForm = ({
               <div className="h-24 bg-muted rounded"></div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Chat mode for AI-powered goal refinement
+  if (useChatMode) {
+    return (
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-xl text-card-foreground flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-violet-500" />
+            AI Goal Refinement
+          </CardTitle>
+          <CardDescription>
+            Answer a few questions to help AI better understand your objectives.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GoalChatQuestioning
+            initialGoal={chatInitialGoal}
+            onSave={handleChatSave}
+            onCancel={handleChatCancel}
+            isSaving={isSaving}
+          />
         </CardContent>
       </Card>
     )
@@ -139,7 +190,9 @@ const GoalInputForm = ({
       aria-label={!onboardingMode && !isEditing ? 'Click to edit your goals' : undefined}
     >
       <CardHeader>
-        <CardTitle className="text-xl text-card-foreground">Explain your current work & goals</CardTitle>
+        <CardTitle className="text-xl text-card-foreground">
+          Explain your current work & goals
+        </CardTitle>
         <CardDescription>
           What is your job? What are your hobbies and projects? Details help our AI differentiate
           between your activities and distractions.
@@ -148,15 +201,29 @@ const GoalInputForm = ({
       <CardContent className="space-y-4">
         <div>
           {isEditing ? (
-            <Textarea
-              ref={textareaRef}
-              id="userProjectsAndGoals"
-              value={userProjectsAndGoals}
-              onChange={(e) => setUserProjectsAndGoals(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-input text-foreground placeholder-gray-500"
-              rows={3}
-              placeholder="I'm working on Cronus - The ai time/distraction tracker software. I'm working on improving the app and getting the first few 1000 users. I'll have to post on reddit and other forums etc."
-            />
+            <div className="space-y-3">
+              <Textarea
+                ref={textareaRef}
+                id="userProjectsAndGoals"
+                value={userProjectsAndGoals}
+                onChange={(e) => setUserProjectsAndGoals(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-input text-foreground placeholder-gray-500"
+                rows={3}
+                placeholder="I'm working on Cronus - The ai time/distraction tracker software. I'm working on improving the app and getting the first few 1000 users. I'll have to post on reddit and other forums etc."
+              />
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleStartChatMode}
+                  className="text-violet-500 hover:text-violet-600 hover:bg-violet-500/10 gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <MessageSquarePlus className="w-4 h-4" />
+                  Use AI Chat to Refine Goals
+                </Button>
+              </div>
+            </div>
           ) : (
             <p className="px-3 py-2 bg-input/50 rounded-md text-foreground min-h-12 whitespace-pre-wrap">
               {userProjectsAndGoals || (
