@@ -20,6 +20,7 @@ export interface HistoryResult {
 
 export async function checkActivityHistory(
   userId: string,
+  goalId: string | null,
   activeWindow: Pick<ActiveWindowDetails, 'ownerName' | 'url' | 'type' | 'title'>
 ): Promise<HistoryResult | null> {
   try {
@@ -43,11 +44,15 @@ export async function checkActivityHistory(
     if (url && type === 'browser') {
       // Most specific: Match by exact URL for browser activities
       queryCondition.url = url;
+      // Add goalId for browser activities to enable goal-based caching
+      queryCondition.goalId = goalId;
     } else if (type === 'browser' && title && title.trim() !== '' && (!url || url.trim() === '')) {
       // Next specific: Browser activity, no URL (or empty URL), but has a non-empty title
       // Match by ownerName AND title to distinguish between different tabs/windows of the same browser if URL is missing
       queryCondition.ownerName = ownerName;
       queryCondition.title = title;
+      // Add goalId for browser activities to enable goal-based caching
+      queryCondition.goalId = goalId;
     } else if (ownerName && isCodeEditor(ownerName) && title) {
       const projectName = getProjectNameFromTitle(title);
       if (projectName) {
@@ -89,7 +94,7 @@ export async function checkActivityHistory(
           llmSummary: (lastEventWithSameIdentifier.llmSummary as string) || null,
           content:
             lastEventWithSameIdentifier.content !== undefined
-              ? (lastEventWithSameIdentifier.content as string) ?? null
+              ? ((lastEventWithSameIdentifier.content as string) ?? null)
               : undefined,
         };
       }
@@ -98,4 +103,24 @@ export async function checkActivityHistory(
     console.error('[CategorizationService] Error during history check:', error);
   }
   return null;
+}
+
+/**
+ * Invalidates browser activity cache for a user when goals change.
+ * This clears all cached browser activity entries for the specified user,
+ * forcing re-categorization of browser activities.
+ */
+export async function invalidateBrowserActivityCache(userId: string): Promise<void> {
+  try {
+    // Delete all browser activity events for this user
+    // This effectively clears the cache for browser activities
+    await ActiveWindowEventModel.deleteMany({
+      userId,
+      type: 'browser',
+    });
+    console.log(`[CategorizationService] Browser activity cache invalidated for user: ${userId}`);
+  } catch (error) {
+    console.error('[CategorizationService] Error during cache invalidation:', error);
+    throw error;
+  }
 }
