@@ -3,6 +3,8 @@ import { safeVerifyToken } from '../lib/authUtils';
 import { isVersionOutdated } from '../lib/versionUtils';
 import { UserModel } from '../models/user';
 import { publicProcedure, router } from '../trpc';
+import { invalidateBrowserActivityCache } from '../services/categorization/history';
+import { analyzeGoalWithAI } from '../services/categorization/llm';
 
 export const userRouter = router({
   updateElectronAppSettings: publicProcedure
@@ -108,6 +110,9 @@ export const userRouter = router({
         throw new Error('User not found');
       }
 
+      // Invalidate browser activity cache when goals change
+      await invalidateBrowserActivityCache(userId);
+
       return {
         success: true,
         userProjectsAndGoals: updatedUser.userProjectsAndGoals,
@@ -168,6 +173,10 @@ export const userRouter = router({
       if (!updatedUser) {
         throw new Error('User not found');
       }
+
+      // Invalidate browser activity cache when goals change
+      // This ensures browser activities are re-categorized based on the new goals
+      await invalidateBrowserActivityCache(userId);
 
       return {
         success: true,
@@ -401,5 +410,31 @@ export const userRouter = router({
         })),
         totalUsers,
       };
+    }),
+
+  // Analyze goal with AI and get confidence score + clarifying question
+  analyzeGoal: publicProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        currentGoal: z.string(),
+        conversationHistory: z.array(
+          z.object({
+            role: z.enum(['user', 'ai']),
+            content: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      safeVerifyToken(input.token);
+
+      const result = await analyzeGoalWithAI(input.currentGoal, input.conversationHistory);
+
+      if (!result) {
+        throw new Error('Failed to analyze goal');
+      }
+
+      return result;
     }),
 });
