@@ -8,6 +8,8 @@ export interface CategorizationResult {
   categoryId: string | null;
   categoryReasoning: string | null;
   llmSummary: string | null;
+  confidence: number | null;
+  action: 'auto-classify' | 'ask-question' | 'mark-distraction' | null;
 }
 
 export async function categorizeActivity(
@@ -18,9 +20,14 @@ export async function categorizeActivity(
   >
 ): Promise<CategorizationResult> {
   // 1. History Check
-  const historyResult = await checkActivityHistory(userId, activeWindow);
+  const historyResult = await checkActivityHistory(userId, null, activeWindow);
   if (historyResult) {
-    return { ...historyResult, llmSummary: historyResult.llmSummary || null };
+    return {
+      ...historyResult,
+      llmSummary: historyResult.llmSummary || null,
+      confidence: null,
+      action: null,
+    };
   }
 
   // 2. LLM-based Categorization by choosing from user's list
@@ -40,7 +47,13 @@ export async function categorizeActivity(
     console.warn(
       `[CategorizationService] User ${userId} has no categories defined. Cannot categorize.`
     );
-    return { categoryId: null, categoryReasoning: null, llmSummary: null };
+    return {
+      categoryId: null,
+      categoryReasoning: null,
+      llmSummary: null,
+      confidence: null,
+      action: null,
+    };
   }
 
   const categoryNamesForLLM = userCategories.map((c) => ({
@@ -92,5 +105,20 @@ export async function categorizeActivity(
     }
   }
 
-  return { categoryId: determinedCategoryId, categoryReasoning, llmSummary };
+  // Determine action based on confidence threshold
+  let action: 'auto-classify' | 'ask-question' | 'mark-distraction' | null = null;
+  let confidence: number | null = null;
+
+  if (choice && choice.confidence !== undefined) {
+    confidence = choice.confidence;
+    if (confidence > 80) {
+      action = 'auto-classify';
+    } else if (confidence >= 50) {
+      action = 'ask-question';
+    } else {
+      action = 'mark-distraction';
+    }
+  }
+
+  return { categoryId: determinedCategoryId, categoryReasoning, llmSummary, confidence, action };
 }

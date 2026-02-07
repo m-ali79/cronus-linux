@@ -8,6 +8,7 @@ export interface CategoryChoice {
   chosenCategoryName: string;
   summary: string;
   reasoning: string;
+  confidence: number;
 }
 
 const CategoryChoiceSchema = z.object({
@@ -21,6 +22,13 @@ const CategoryChoiceSchema = z.object({
     .string()
     .describe(
       'Short explanation of why this category was chosen based on the content and users work/goals. Keep it very short and concise. Max 20 words.'
+    ),
+  confidence: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe(
+      'Confidence score (0-100) indicating how certain you are that this classification is correct. Be conservative - if unsure, give a lower score.'
     ),
 }) satisfies z.ZodType<CategoryChoice>;
 
@@ -109,7 +117,9 @@ TASK:
 - If the activity is obviously unrelated to the user's stated projects and goals (if they properly set their projects/goals), it should be categorized as "Distraction" regardless of the activity type.
 - If the activity doesn't neatly fit into any of the other categories it's likely a distraction.
 
-Respond with the category name and your reasoning.
+Also provide a confidence score (0-100) indicating how certain you are that this classification is correct. Be conservative - if unsure, give a lower score.
+
+Respond with the category name, your reasoning, and your confidence score.
           `,
     },
   ];
@@ -318,6 +328,125 @@ export async function getEmojiForCategory(
     return null;
   } catch (error) {
     console.error('Error getting emoji for category:', error);
+    return null;
+  }
+}
+
+// Goal analysis types
+export interface GoalAnalysisResult {
+  confidence: number;
+  question: string | null;
+  refinedGoal: string | null;
+  reasoning: string;
+}
+
+const GoalAnalysisSchema = z.object({
+  confidence: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Confidence score (0-100) indicating how well you understand the user's goals."),
+  question: z
+    .string()
+    .nullable()
+    .describe(
+      'A clarifying question to ask the user if confidence is below 80%. Null if confidence >= 80%.'
+    ),
+  refinedGoal: z
+    .string()
+    .nullable()
+    .describe('The refined, comprehensive goal statement if confidence >= 80%. Null otherwise.'),
+  reasoning: z
+    .string()
+    .describe(
+      'Brief explanation of your confidence assessment and what information you still need.'
+    ),
+});
+
+function _buildGoalAnalysisPrompt(
+  currentGoal: string,
+  conversationHistory: Array<{ role: 'user' | 'ai'; content: string }>
+): Array<{ role: 'system' | 'user'; content: string }> {
+  const historyString =
+    conversationHistory.length > 0
+      ? conversationHistory
+          .map((msg) => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
+          .join('\n\n')
+      : 'No previous conversation.';
+
+  return [
+    {
+      role: 'system' as const,
+      content: `You are an AI assistant that helps users clarify their work goals and projects. Your job is to:
+
+1. Analyze the user's stated goals
+2. Determine how well you understand their objectives (confidence 0-100)
+3. If confidence < 80%, ask a specific clarifying question to gather more information
+4. If confidence >= 80%, provide a refined, comprehensive goal statement that captures all the details discussed
+
+Be thorough but concise. Ask one question at a time. Focus on understanding:
+- What type of work/project they're doing
+- What technologies or tools they're using
+- What specific outcomes or milestones they're working toward
+- What would indicate success for them
+
+Examples of vague goals that need clarification:
+- "Build something" -> Need to know: What type? Web app? Mobile? Desktop?
+- "Work on my project" -> Need to know: What project? What are the goals?
+- "Learn coding" -> Need to know: What language? What type of projects?
+
+Examples of clear goals (high confidence):
+- "Building a React web app for task management with user authentication and real-time sync"
+- "Studying for my CPA exam, focusing on audit and financial accounting sections"
+- "Developing a mobile fitness tracking app using Flutter with workout logging and progress charts"`,
+    },
+    {
+      role: 'user' as const,
+      content: `CONVERSATION HISTORY:
+${historyString}
+
+CURRENT GOAL STATEMENT:
+${currentGoal}
+
+TASK:
+Analyze the goal and conversation history. Determine your confidence (0-100) in understanding the user's objectives.
+
+If confidence < 80%, ask ONE specific clarifying question that would most improve your understanding.
+If confidence >= 80%, provide a refined, comprehensive goal statement that incorporates all the information gathered.
+
+Respond with your confidence score, question (if needed), refined goal (if confident), and reasoning.`,
+    },
+  ];
+}
+
+export async function analyzeGoalWithAI(
+  currentGoal: string,
+  conversationHistory: Array<{ role: 'user' | 'ai'; content: string }>
+): Promise<GoalAnalysisResult | null> {
+  const prompt = _buildGoalAnalysisPrompt(currentGoal, conversationHistory);
+
+  try {
+    const result = await generateText({
+      model: getCategorizationModel(),
+      temperature: 0.3,
+      messages: prompt,
+      output: Output.object({
+        schema: GoalAnalysisSchema,
+        name: 'goal_analysis',
+        description:
+          'Analysis of user goal with confidence score and clarifying question or refined goal.',
+      }),
+    });
+
+    const parsed = GoalAnalysisSchema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn('[LLM] goal_analysis schema mismatch:', parsed.error.flatten());
+      return null;
+    }
+
+    return parsed.data;
+  } catch (error) {
+    console.error('Error analyzing goal with AI:', error);
     return null;
   }
 }
