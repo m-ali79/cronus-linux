@@ -4,6 +4,26 @@ import { CategoryModel } from '../../models/category';
 import { checkActivityHistory } from './history';
 import { getLLMCategoryChoice, getLLMSummaryForBlock } from './llm';
 
+/**
+ * ACTIVITY CATEGORIZATION CONFIDENCE vs GOAL CLARITY CONFIDENCE
+ *
+ * These are two SEPARATE confidence concepts in the system:
+ *
+ * 1. GOAL CREATION CONFIDENCE (GoalChatQuestioning.tsx):
+ *    - Measures how well AI understands user's goal during goal setup
+ *    - Labeled as "Goal Clarity: X%" in UI
+ *    - Threshold: Goal saves at 100% confidence
+ *    - Used to decide when goal refinement is complete
+ *
+ * 2. ACTIVITY CATEGORIZATION CONFIDENCE (this file):
+ *    - Measures AI's confidence in work vs distraction decision
+ *    - Labeled as "Certainty: X%" in notifications
+ *    - Thresholds: >80% auto-classify, 50-80% ask user, <50% mark as distraction
+ *    - Used for real-time activity monitoring decisions
+ *
+ * DO NOT conflate these two concepts - they serve different purposes.
+ */
+
 export interface CategorizationResult {
   categoryId: string | null;
   categoryReasoning: string | null;

@@ -21,8 +21,13 @@ export interface HistoryResult {
 export async function checkActivityHistory(
   userId: string,
   goalId: string | null,
-  activeWindow: Pick<ActiveWindowDetails, 'ownerName' | 'url' | 'type' | 'title'>
+  activeWindow: Pick<ActiveWindowDetails, 'ownerName' | 'url' | 'type' | 'title'> | null | undefined
 ): Promise<HistoryResult | null> {
+  // Guard against undefined/null activeWindow parameter
+  if (!activeWindow) {
+    return null;
+  }
+
   try {
     const { ownerName, url, type, title } = activeWindow;
 
