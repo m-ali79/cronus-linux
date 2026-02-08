@@ -92,8 +92,8 @@ Respond with the category name and brief reasoning.`,
       }),
       providerOptions: {
         openrouter: {
-          thinking: {
-            type: 'disabled',
+          reasoning: {
+            enabled: false,
           },
         },
       },

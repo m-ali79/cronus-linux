@@ -80,8 +80,8 @@ export async function getLLMCategorySuggestion(
       }),
       providerOptions: {
         openrouter: {
-          thinking: {
-            type: 'disabled',
+          reasoning: {
+            enabled: false,
           },
         },
       },

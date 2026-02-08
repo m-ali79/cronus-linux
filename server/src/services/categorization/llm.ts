@@ -153,8 +153,8 @@ export async function getLLMCategoryChoice(
       }),
       providerOptions: {
         openrouter: {
-          thinking: {
-            type: 'disabled',
+          reasoning: {
+            enabled: false,
           },
         },
       },
@@ -448,8 +448,8 @@ export async function analyzeGoalWithAI(
       }),
       providerOptions: {
         openrouter: {
-          thinking: {
-            type: 'disabled',
+          reasoning: {
+            enabled: false,
           },
         },
       },
