@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
 import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
@@ -125,6 +125,12 @@ Respond with the category name, your reasoning, and your confidence score.
   ];
 }
 
+// STRICT system prompt for GLM models to output only JSON
+const STRICT_JSON_SYSTEM_PROMPT = `You are a reliable data extraction engine. 
+You MUST output ONLY valid JSON matching the provided schema.
+NO conversational text, NO markdown formatting (like \`\`\`json), NO "Confidence" prefixes.
+Just the raw JSON object. Failure to comply will break the system.`;
+
 // TODO: could add Retry Logic with Consistency Check
 export async function getLLMCategoryChoice(
   userProjectsAndGoals: string,
@@ -141,16 +147,19 @@ export async function getLLMCategoryChoice(
     activityDetails
   );
 
+  // Extract system and user messages from prompt array
+  const systemContent = promptInput.find((m) => m.role === 'system')?.content || '';
+  const userContent = promptInput.find((m) => m.role === 'user')?.content || '';
+
   try {
-    const result = await generateText({
+    const result = await generateObject({
       model: getCategorizationModel(),
+      schema: CategoryChoiceSchema,
+      // CRITICAL: Force 'json' mode instead of 'auto' (tool calling) for GLM models
+      mode: 'json',
+      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
+      prompt: userContent,
       temperature: 0, // Deterministic output
-      messages: promptInput,
-      output: Output.object({
-        schema: CategoryChoiceSchema,
-        name: 'category_choice',
-        description: "Chosen category + short summary + short reasoning. Don't invent facts.",
-      }),
       providerOptions: {
         openrouter: {
           reasoning: {
@@ -160,26 +169,7 @@ export async function getLLMCategoryChoice(
       },
     });
 
-    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
-    const rawFinishReason: string | undefined = result.rawFinishReason;
-
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(
-        `[LLM] category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
-      );
-      return null;
-    }
-
-    const parsed = CategoryChoiceSchema.safeParse(result.output);
-    if (!parsed.success) {
-      console.warn(
-        `[LLM] category_choice schema mismatch model="${getCategorizationModelId()}":`,
-        parsed.error.flatten()
-      );
-      return null;
-    }
-
-    return parsed.data;
+    return result.object;
   } catch (error) {
     console.error('Error getting LLM category choice:', error);
     return null;
@@ -435,17 +425,17 @@ export async function analyzeGoalWithAI(
 ): Promise<GoalAnalysisResult | null> {
   const prompt = _buildGoalAnalysisPrompt(currentGoal, conversationHistory);
 
+  const systemContent = prompt.find((m) => m.role === 'system')?.content || '';
+  const userContent = prompt.find((m) => m.role === 'user')?.content || '';
+
   try {
-    const result = await generateText({
+    const result = await generateObject({
       model: getCategorizationModel(),
+      schema: GoalAnalysisSchema,
+      mode: 'json',
+      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
+      prompt: userContent,
       temperature: 0.3,
-      messages: prompt,
-      output: Output.object({
-        schema: GoalAnalysisSchema,
-        name: 'goal_analysis',
-        description:
-          'Analysis of user goal with confidence score and clarifying question or refined goal.',
-      }),
       providerOptions: {
         openrouter: {
           reasoning: {
@@ -455,13 +445,7 @@ export async function analyzeGoalWithAI(
       },
     });
 
-    const parsed = GoalAnalysisSchema.safeParse(result.output);
-    if (!parsed.success) {
-      console.warn('[LLM] goal_analysis schema mismatch:', parsed.error.flatten());
-      return null;
-    }
-
-    return parsed.data;
+    return result.object;
   } catch (error) {
     console.error('Error analyzing goal with AI:', error);
     return null;

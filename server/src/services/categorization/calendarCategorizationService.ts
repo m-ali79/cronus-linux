@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import { Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
@@ -29,6 +29,11 @@ function buildCalendarEventContent(calendarEvent: CalendarEvent): string {
   return content;
 }
 
+const STRICT_JSON_SYSTEM_PROMPT = `You are a reliable data extraction engine. 
+You MUST output ONLY valid JSON matching the provided schema.
+NO conversational text, NO markdown formatting (like \`\`\`json), NO "Confidence" prefixes.
+Just the raw JSON object. Failure to comply will break the system.`;
+
 async function getLLMCalendarCategoryChoice(
   userProjectsAndGoals: string,
   userCategories: Pick<CategoryType, 'name' | 'description'>[],
@@ -41,10 +46,7 @@ async function getLLMCalendarCategoryChoice(
   const calendarContent = buildCalendarEventContent(calendarEvent);
   const duration = Math.round((calendarEvent.endTime - calendarEvent.startTime) / (1000 * 60)); // minutes
 
-  const promptInput = [
-    {
-      role: 'system' as const,
-      content: `You are an AI assistant that categorizes calendar events based on their content and context.
+  const systemContent = `You are an AI assistant that categorizes calendar events based on their content and context.
 
 Focus on:
 - Event title and description
@@ -52,11 +54,9 @@ Focus on:
 - Event context in relation to user's goals
 - Event duration and timing
 
-Calendar events with multiple attendees often indicate social or collaborative activities.`,
-    },
-    {
-      role: 'user' as const,
-      content: `
+Calendar events with multiple attendees often indicate social or collaborative activities.`;
+
+  const userContent = `
 USER'S PROJECTS AND GOALS:
 ${userProjectsAndGoals || 'Not set'}
 
@@ -76,20 +76,16 @@ Choose the category that best fits this calendar event. Consider:
 - If it's personal development, choose learning/development categories
 - Match the event purpose to the user's goals and available categories
 
-Respond with the category name and brief reasoning.`,
-    },
-  ];
+Respond with the category name and brief reasoning.`;
 
   try {
-    const result = await generateText({
+    const result = await generateObject({
       model: getCategorizationModel(),
+      schema: CalendarCategoryChoiceSchema,
+      mode: 'json',
+      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
+      prompt: userContent,
       temperature: 0,
-      messages: promptInput,
-      output: Output.object({
-        schema: CalendarCategoryChoiceSchema,
-        name: 'calendar_category_choice',
-        description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
-      }),
       providerOptions: {
         openrouter: {
           reasoning: {
@@ -99,26 +95,7 @@ Respond with the category name and brief reasoning.`,
       },
     });
 
-    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
-    const rawFinishReason: string | undefined = result.rawFinishReason;
-
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(
-        `[LLM] calendar_category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
-      );
-      return null;
-    }
-
-    const parsed = CalendarCategoryChoiceSchema.safeParse(result.output);
-    if (!parsed.success) {
-      console.warn(
-        `[LLM] calendar_category_choice schema mismatch model="${getCategorizationModelId()}":`,
-        parsed.error.flatten()
-      );
-      return null;
-    }
-
-    return parsed.data;
+    return result.object;
   } catch (error) {
     console.error('Error getting LLM calendar category choice:', error);
     return null;

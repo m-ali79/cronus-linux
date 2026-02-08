@@ -1,4 +1,4 @@
-import { generateText, Output } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
 
@@ -64,20 +64,27 @@ Generate a list of 3-5 personalized categories based on the user's goals.
   ];
 }
 
+const STRICT_JSON_SYSTEM_PROMPT = `You are a reliable data extraction engine. 
+You MUST output ONLY valid JSON matching the provided schema.
+NO conversational text, NO markdown formatting (like \`\`\`json), NO "Confidence" prefixes.
+Just the raw JSON object. Failure to comply will break the system.`;
+
 export async function getLLMCategorySuggestion(
   userProjectsAndGoals: string
 ): Promise<z.infer<typeof SuggestedCategoriesSchema> | null> {
   const promptInput = _buildLLMCategorySuggestionPromptInput(userProjectsAndGoals);
+  
+  const systemContent = promptInput.find(m => m.role === 'system')?.content || '';
+  const userContent = promptInput.find(m => m.role === 'user')?.content || '';
+  
   try {
-    const result = await generateText({
+    const result = await generateObject({
       model: getCategorizationModel(),
+      schema: SuggestedCategoriesSchema,
+      mode: 'json',
+      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
+      prompt: userContent,
       temperature: 0,
-      messages: promptInput,
-      output: Output.object({
-        schema: SuggestedCategoriesSchema,
-        name: 'suggested_categories',
-        description: '3-5 personalized categories + emoji/color/isProductive.',
-      }),
       providerOptions: {
         openrouter: {
           reasoning: {
@@ -87,15 +94,30 @@ export async function getLLMCategorySuggestion(
       },
     });
 
-    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
-    const rawFinishReason: string | undefined = result.rawFinishReason;
+    const distractionCategory = {
+      name: 'Distraction',
+      description: 'Scrolling social media, browsing unrelated content, or idle clicking',
+      color: '#EC4899',
+      emoji: '🎮',
+      isProductive: false,
+    };
 
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(
-        `[LLM] suggested_categories non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
-      );
-      return null;
-    }
+    const friendsAndSocialCategory = {
+      name: 'Friends & Social',
+      description: 'Spending time with friends, social activities, or personal relationships',
+      color: '#8B5CF6',
+      emoji: '👥',
+      isProductive: false,
+    };
+
+    return {
+      categories: [...result.object.categories, distractionCategory, friendsAndSocialCategory],
+    };
+  } catch (error) {
+    console.error('Error getting LLM category suggestion:', error);
+    return null;
+  }
+}
 
     const parsed = SuggestedCategoriesSchema.safeParse(result.output);
     if (!parsed.success) {
