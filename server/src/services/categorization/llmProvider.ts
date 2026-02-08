@@ -40,7 +40,11 @@ export function getCategorizationModel(): ReturnType<ReturnType<typeof createOpe
         apiKey: process.env.OPENROUTER_API_KEY,
       });
     }
-    cachedOpenRouterModel = cachedOpenRouterClient(getCategorizationModelId());
+    cachedOpenRouterModel = cachedOpenRouterClient(getCategorizationModelId(), {
+      extraBody: {
+        plugins: [{ id: 'response-healing' }],
+      },
+    });
   }
   return cachedOpenRouterModel;
 }
