@@ -1,4 +1,4 @@
-import { generateObject, generateText } from 'ai';
+import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
 import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
@@ -125,12 +125,6 @@ Respond with the category name, your reasoning, and your confidence score.
   ];
 }
 
-// STRICT system prompt for GLM models to output only JSON
-const STRICT_JSON_SYSTEM_PROMPT = `You are a reliable data extraction engine. 
-You MUST output ONLY valid JSON matching the provided schema.
-NO conversational text, NO markdown formatting (like \`\`\`json), NO "Confidence" prefixes.
-Just the raw JSON object. Failure to comply will break the system.`;
-
 // TODO: could add Retry Logic with Consistency Check
 export async function getLLMCategoryChoice(
   userProjectsAndGoals: string,
@@ -147,29 +141,38 @@ export async function getLLMCategoryChoice(
     activityDetails
   );
 
-  // Extract system and user messages from prompt array
-  const systemContent = promptInput.find((m) => m.role === 'system')?.content || '';
-  const userContent = promptInput.find((m) => m.role === 'user')?.content || '';
-
   try {
-    const result = await generateObject({
+    const result = await generateText({
       model: getCategorizationModel(),
-      schema: CategoryChoiceSchema,
-      // CRITICAL: Force 'json' mode instead of 'auto' (tool calling) for GLM models
-      mode: 'json',
-      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
-      prompt: userContent,
       temperature: 0, // Deterministic output
-      providerOptions: {
-        openrouter: {
-          reasoning: {
-            enabled: false,
-          },
-        },
-      },
+      messages: promptInput,
+      output: Output.object({
+        schema: CategoryChoiceSchema,
+        name: 'category_choice',
+        description: "Chosen category + short summary + short reasoning. Don't invent facts.",
+      }),
     });
 
-    return result.object;
+    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
+    const rawFinishReason: string | undefined = result.rawFinishReason;
+
+    if (finishReason && finishReason !== 'stop') {
+      console.warn(
+        `[LLM] category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
+      );
+      return null;
+    }
+
+    const parsed = CategoryChoiceSchema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn(
+        `[LLM] category_choice schema mismatch model="${getCategorizationModelId()}":`,
+        parsed.error.flatten()
+      );
+      return null;
+    }
+
+    return parsed.data;
   } catch (error) {
     console.error('Error getting LLM category choice:', error);
     return null;
@@ -355,7 +358,9 @@ const GoalAnalysisSchema = z.object({
     .describe('The refined, comprehensive goal statement if confidence >= 80%. Null otherwise.'),
   reasoning: z
     .string()
-    .describe('Brief reasoning about why you asked this question or how confident you are.'),
+    .describe(
+      'Brief explanation of your confidence assessment and what information you still need.'
+    ),
 });
 
 function _buildGoalAnalysisPrompt(
@@ -372,33 +377,28 @@ function _buildGoalAnalysisPrompt(
   return [
     {
       role: 'system' as const,
-      content: `You are an AI assistant that helps users clarify what counts as "WORK" vs "DISTRACTION" for their goals. Your job is to:
+      content: `You are an AI assistant that helps users clarify their work goals and projects. Your job is to:
 
-1. Analyze the user's stated goals to understand work boundaries
-2. Determine how well you understand work vs distraction for this goal (confidence 0-100)
-3. If confidence < 80%, ask ONE specific clarifying question about work boundaries
-4. If confidence >= 80%, provide a comprehensive work/distaction boundary definition
+1. Analyze the user's stated goals
+2. Determine how well you understand their objectives (confidence 0-100)
+3. If confidence < 80%, ask a specific clarifying question to gather more information
+4. If confidence >= 80%, provide a refined, comprehensive goal statement that captures all the details discussed
 
-Your goal is NOT project planning. It's understanding real-time work decisions:
-- When the user is on YouTube, GitHub, StackOverflow - is that work or distraction?
-- When they're reading docs, watching tutorials, browsing repos - work or distraction?
+Be thorough but concise. Ask one question at a time. Focus on understanding:
+- What type of work/project they're doing
+- What technologies or tools they're using
+- What specific outcomes or milestones they're working toward
+- What would indicate success for them
 
-Ask clarifying questions like:
-- "Does searching on StackOverflow count as work for you?"
-- "Is watching tutorial videos work or distraction?"
-- "What about browsing GitHub repos?"
-- "Does reading documentation count as work?"
-- "Is researching best practices work?"
+Examples of vague goals that need clarification:
+- "Build something" -> Need to know: What type? Web app? Mobile? Desktop?
+- "Work on my project" -> Need to know: What project? What are the goals?
+- "Learn coding" -> Need to know: What language? What type of projects?
 
-Examples of goals with clear boundaries (high confidence):
-- "Learning React by building a todo app. Work: coding, reading React docs, StackOverflow. Distraction: random YouTube videos, browsing Twitter, reading unrelated tech blogs."
-- "Preparing for CPA exam. Work: reading study materials, watching exam prep videos, doing practice questions. Distraction: YouTube, social media, checking email."
-- "Building a mobile fitness app. Work: coding, reading Flutter docs, browsing Flutter packages on pub.dev. Distraction: browsing unrelated GitHub repos, watching entertainment videos."
-
-Examples of goals needing clarification (low confidence):
-- "Learn coding" -> Ask: "Does watching YouTube tutorials count as work?"
-- "Build a project" -> Ask: "Does searching on StackOverflow count as work?"
-- "Study for exams" -> Ask: "Is watching educational videos work for you?"`,
+Examples of clear goals (high confidence):
+- "Building a React web app for task management with user authentication and real-time sync"
+- "Studying for my CPA exam, focusing on audit and financial accounting sections"
+- "Developing a mobile fitness tracking app using Flutter with workout logging and progress charts"`,
     },
     {
       role: 'user' as const,
@@ -414,7 +414,7 @@ Analyze the goal and conversation history. Determine your confidence (0-100) in 
 If confidence < 80%, ask ONE specific clarifying question that would most improve your understanding.
 If confidence >= 80%, provide a refined, comprehensive goal statement that incorporates all the information gathered.
 
-Respond with your confidence score, question (if needed), and refined goal (if confident).`,
+Respond with your confidence score, question (if needed), refined goal (if confident), and reasoning.`,
     },
   ];
 }
@@ -425,27 +425,26 @@ export async function analyzeGoalWithAI(
 ): Promise<GoalAnalysisResult | null> {
   const prompt = _buildGoalAnalysisPrompt(currentGoal, conversationHistory);
 
-  const systemContent = prompt.find((m) => m.role === 'system')?.content || '';
-  const userContent = prompt.find((m) => m.role === 'user')?.content || '';
-
   try {
-    const result = await generateObject({
+    const result = await generateText({
       model: getCategorizationModel(),
-      schema: GoalAnalysisSchema,
-      mode: 'json',
-      system: `${STRICT_JSON_SYSTEM_PROMPT}\n\n${systemContent}`,
-      prompt: userContent,
       temperature: 0.3,
-      providerOptions: {
-        openrouter: {
-          reasoning: {
-            enabled: false,
-          },
-        },
-      },
+      messages: prompt,
+      output: Output.object({
+        schema: GoalAnalysisSchema,
+        name: 'goal_analysis',
+        description:
+          'Analysis of user goal with confidence score and clarifying question or refined goal.',
+      }),
     });
 
-    return result.object;
+    const parsed = GoalAnalysisSchema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn('[LLM] goal_analysis schema mismatch:', parsed.error.flatten());
+      return null;
+    }
+
+    return parsed.data;
   } catch (error) {
     console.error('Error analyzing goal with AI:', error);
     return null;
