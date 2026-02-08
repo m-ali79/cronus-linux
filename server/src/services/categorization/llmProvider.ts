@@ -17,8 +17,7 @@ export type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' |
 // Provider selection
 const AI_PROVIDER = process.env.AI_PROVIDER || 'openrouter'; // 'openrouter' | 'google'
 
-// OpenRouter config
-const OPENROUTER_DEFAULT_MODEL = 'z-ai/glm-4.5-air:free';
+const OPENROUTER_DEFAULT_MODEL = 'google/gemma-2-9b-it:free';
 const OPENROUTER_MODEL_ID_ENV_VAR = 'OPENROUTER_MODEL_ID';
 
 // Google config (fallback)

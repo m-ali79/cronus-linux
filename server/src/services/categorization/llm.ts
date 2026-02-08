@@ -337,7 +337,6 @@ export interface GoalAnalysisResult {
   confidence: number;
   question: string | null;
   refinedGoal: string | null;
-  reasoning: string;
 }
 
 const GoalAnalysisSchema = z.object({
@@ -356,11 +355,6 @@ const GoalAnalysisSchema = z.object({
     .string()
     .nullable()
     .describe('The refined, comprehensive goal statement if confidence >= 80%. Null otherwise.'),
-  reasoning: z
-    .string()
-    .describe(
-      'Brief explanation of your confidence assessment and what information you still need.'
-    ),
 });
 
 function _buildGoalAnalysisPrompt(
@@ -419,7 +413,7 @@ Analyze the goal and conversation history. Determine your confidence (0-100) in 
 If confidence < 80%, ask ONE specific clarifying question that would most improve your understanding.
 If confidence >= 80%, provide a refined, comprehensive goal statement that incorporates all the information gathered.
 
-Respond with your confidence score, question (if needed), refined goal (if confident), and reasoning.`,
+Respond with your confidence score, question (if needed), and refined goal (if confident).`,
     },
   ];
 }
