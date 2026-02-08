@@ -78,6 +78,13 @@ export async function getLLMCategorySuggestion(
         name: 'suggested_categories',
         description: '3-5 personalized categories + emoji/color/isProductive.',
       }),
+      providerOptions: {
+        openrouter: {
+          thinking: {
+            type: 'disabled',
+          },
+        },
+      },
     });
 
     const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;

@@ -151,6 +151,13 @@ export async function getLLMCategoryChoice(
         name: 'category_choice',
         description: "Chosen category + short summary + short reasoning. Don't invent facts.",
       }),
+      providerOptions: {
+        openrouter: {
+          thinking: {
+            type: 'disabled',
+          },
+        },
+      },
     });
 
     const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
@@ -337,6 +344,7 @@ export interface GoalAnalysisResult {
   confidence: number;
   question: string | null;
   refinedGoal: string | null;
+  reasoning: string;
 }
 
 const GoalAnalysisSchema = z.object({
@@ -355,6 +363,9 @@ const GoalAnalysisSchema = z.object({
     .string()
     .nullable()
     .describe('The refined, comprehensive goal statement if confidence >= 80%. Null otherwise.'),
+  reasoning: z
+    .string()
+    .describe('Brief reasoning about why you asked this question or how confident you are.'),
 });
 
 function _buildGoalAnalysisPrompt(
@@ -435,6 +446,13 @@ export async function analyzeGoalWithAI(
         description:
           'Analysis of user goal with confidence score and clarifying question or refined goal.',
       }),
+      providerOptions: {
+        openrouter: {
+          thinking: {
+            type: 'disabled',
+          },
+        },
+      },
     });
 
     const parsed = GoalAnalysisSchema.safeParse(result.output);

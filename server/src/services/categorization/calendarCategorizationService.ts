@@ -90,6 +90,13 @@ Respond with the category name and brief reasoning.`,
         name: 'calendar_category_choice',
         description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
       }),
+      providerOptions: {
+        openrouter: {
+          thinking: {
+            type: 'disabled',
+          },
+        },
+      },
     });
 
     const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
