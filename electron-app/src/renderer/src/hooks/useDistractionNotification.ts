@@ -136,7 +136,7 @@ function formatProductiveNotification(
   let body = siteInfo
 
   if (confidence !== undefined && confidence !== null) {
-    body += `\n\nConfidence: ${confidence}%`
+    body += `\n\nCertainty: ${confidence}%`
   }
 
   if (goalName) {
@@ -162,7 +162,7 @@ function formatDistractionNotification(
   let body = siteInfo
 
   if (confidence !== undefined && confidence !== null) {
-    body += `\n\nConfidence: ${confidence}%`
+    body += `\n\nCertainty: ${confidence}%`
   }
 
   if (goalName) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, MessageSquarePlus } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from '../../hooks/use-toast'
 import { trpc } from '../../utils/trpc'
@@ -12,12 +12,14 @@ interface GoalInputFormProps {
   onboardingMode?: boolean
   onComplete?: (goals: string) => void
   shouldFocus?: boolean
+  disableAIChat?: boolean
 }
 
 const GoalInputForm = ({
   onboardingMode = false,
   onComplete,
-  shouldFocus = false
+  shouldFocus = false,
+  disableAIChat = false
 }: GoalInputFormProps) => {
   const { token } = useAuth()
   const [userProjectsAndGoals, setUserProjectsAndGoals] = useState('')
@@ -25,6 +27,7 @@ const GoalInputForm = ({
   const [isSaving, setIsSaving] = useState(false)
   const [useChatMode, setUseChatMode] = useState(false)
   const [chatInitialGoal, setChatInitialGoal] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const hasContent = userProjectsAndGoals.trim().length > 0
@@ -43,6 +46,7 @@ const GoalInputForm = ({
       }
       setIsEditing(false)
       setUseChatMode(false)
+      setIsAnalyzing(false)
 
       if (!onboardingMode) {
         toast({
@@ -65,6 +69,8 @@ const GoalInputForm = ({
       setIsSaving(false)
     }
   })
+
+  const analyzeGoalMutation = trpc.user.analyzeGoal.useMutation()
 
   // Load goals when data is fetched
   useEffect(() => {
@@ -93,11 +99,44 @@ const GoalInputForm = ({
   const handleSave = async () => {
     if (!token) return
 
-    setIsSaving(true)
-    updateGoalsMutation.mutate({
-      token,
-      userProjectsAndGoals
-    })
+    if (disableAIChat) {
+      setIsSaving(true)
+      updateGoalsMutation.mutate({
+        token,
+        userProjectsAndGoals
+      })
+      return
+    }
+
+    setIsAnalyzing(true)
+
+    try {
+      const result = await analyzeGoalMutation.mutateAsync({
+        token,
+        currentGoal: userProjectsAndGoals,
+        conversationHistory: []
+      })
+
+      if (result.confidence >= 100 && result.refinedGoal) {
+        setIsSaving(true)
+        updateGoalsMutation.mutate({
+          token,
+          userProjectsAndGoals: result.refinedGoal
+        })
+      } else {
+        setChatInitialGoal(userProjectsAndGoals)
+        setUseChatMode(true)
+        setIsAnalyzing(false)
+      }
+    } catch (error) {
+      console.error('Error analyzing goal:', error)
+      toast({
+        title: 'Analysis Error',
+        description: 'Failed to analyze your goal. Please try again.',
+        variant: 'destructive'
+      })
+      setIsAnalyzing(false)
+    }
   }
 
   const handleCancel = () => {
@@ -113,12 +152,6 @@ const GoalInputForm = ({
     }
   }
 
-  const handleStartChatMode = () => {
-    const currentGoal = textareaRef.current?.value || userProjectsAndGoals
-    setChatInitialGoal(currentGoal)
-    setUseChatMode(true)
-  }
-
   const handleChatSave = (refinedGoal: string) => {
     setUserProjectsAndGoals(refinedGoal)
     setIsSaving(true)
@@ -131,6 +164,7 @@ const GoalInputForm = ({
   const handleChatCancel = () => {
     setUseChatMode(false)
     setChatInitialGoal('')
+    setIsAnalyzing(false)
   }
 
   if (isLoading) {
@@ -210,19 +244,14 @@ const GoalInputForm = ({
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-input text-foreground placeholder-gray-500"
                 rows={3}
                 placeholder="I'm working on Cronus - The ai time/distraction tracker software. I'm working on improving the app and getting the first few 1000 users. I'll have to post on reddit and other forums etc."
+                disabled={isAnalyzing}
               />
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleStartChatMode}
-                  className="text-violet-500 hover:text-violet-600 hover:bg-violet-500/10 gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <MessageSquarePlus className="w-4 h-4" />
-                  Use AI Chat to Refine Goals
-                </Button>
-              </div>
+              {isAnalyzing && (
+                <div className="flex items-center gap-2 text-sm text-violet-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Analyzing your goals with AI...</span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="px-3 py-2 bg-input/50 rounded-md text-foreground min-h-12 whitespace-pre-wrap">
@@ -236,16 +265,32 @@ const GoalInputForm = ({
         {isEditing && (
           <div className="flex justify-end gap-3 mt-6">
             {!onboardingMode && (
-              <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                disabled={isSaving || isAnalyzing}
+              >
                 Cancel
               </Button>
             )}
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={isSaving || (onboardingMode && !hasContent)}
+              disabled={isSaving || isAnalyzing || (onboardingMode && !hasContent)}
             >
-              {isSaving ? 'Saving...' : onboardingMode ? 'Save & Continue' : 'Save Goals'}
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : isSaving ? (
+                'Saving...'
+              ) : onboardingMode ? (
+                'Save & Continue'
+              ) : (
+                'Save Goals'
+              )}
             </Button>
           </div>
         )}

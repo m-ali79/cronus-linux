@@ -59,7 +59,7 @@ export function GoalChatQuestioning({
       setMessages([userMessage])
       handleAnalyzeGoal(initialGoal, [])
     }
-  }, [initialGoal])
+  }, [initialGoal, messages.length])
 
   const handleAnalyzeGoal = async (
     goalText: string,
@@ -78,7 +78,7 @@ export function GoalChatQuestioning({
 
       setConfidence(result.confidence)
 
-      if (result.confidence >= 80 && result.refinedGoal) {
+      if (result.confidence >= 100 && result.refinedGoal) {
         setRefinedGoal(result.refinedGoal)
         setIsComplete(true)
 
@@ -151,13 +151,13 @@ export function GoalChatQuestioning({
   }
 
   const getConfidenceColor = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500'
+    if (score >= 100) return 'bg-emerald-500'
     if (score >= 50) return 'bg-amber-500'
     return 'bg-rose-500'
   }
 
   const getConfidenceLabel = (score: number) => {
-    if (score >= 80) return 'Goal Understood!'
+    if (score >= 100) return 'Goal Understood!'
     if (score >= 50) return 'Getting Clearer...'
     return 'Learning About Your Goals...'
   }
@@ -176,9 +176,7 @@ export function GoalChatQuestioning({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-end gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              {getConfidenceLabel(confidence)}
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Goal Clarity</span>
             <div className="flex items-center gap-2">
               <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
                 <motion.div
