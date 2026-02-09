@@ -1,0 +1,7 @@
+{
+  "name": "com.cronus.app",
+  "description": "Cronus URL Tracker",
+  "path": "{{HOST_PATH}}",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://{{EXTENSION_ID}}/"]
+}
