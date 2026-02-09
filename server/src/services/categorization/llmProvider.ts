@@ -18,7 +18,7 @@ export type FinishReason = 'stop' | 'length' | 'content-filter' | 'tool-calls' |
 const AI_PROVIDER = process.env.AI_PROVIDER || 'openrouter'; // 'openrouter' | 'google'
 
 // OpenRouter config
-const OPENROUTER_DEFAULT_MODEL = 'z-ai/glm-4.5-air:free';
+const OPENROUTER_DEFAULT_MODEL = 'arcee-ai/trinity-mini:free';
 const OPENROUTER_MODEL_ID_ENV_VAR = 'OPENROUTER_MODEL_ID';
 
 // Google config (fallback)
@@ -79,4 +79,58 @@ export function getCategorizationModel():
 
 export function getAIProvider(): string {
   return AI_PROVIDER;
+}
+
+/**
+ * Model thinking/reasoning configuration
+ * Maps model IDs to their thinking token support
+ *
+ * Models that support disabling thinking will have thinking disabled by default
+ * Models that force thinking will work without errors
+ *
+ * To add a new model, just add it here - no other code changes needed
+ */
+const MODEL_THINKING_CONFIG: Record<string, { canDisable: boolean; disableByDefault?: boolean }> = {
+  'openai/gpt-4o': { canDisable: true, disableByDefault: true },
+  'openai/gpt-4o-mini': { canDisable: true, disableByDefault: true },
+  'openai/o3-mini': { canDisable: true, disableByDefault: true },
+  'anthropic/claude-3.7-sonnet': { canDisable: true, disableByDefault: true },
+  'anthropic/claude-3.5-sonnet': { canDisable: true, disableByDefault: true },
+  'google/gemini-2.5-flash': { canDisable: true, disableByDefault: true },
+  'google/gemini-2.5-pro': { canDisable: true, disableByDefault: true },
+  'google/gemini-1.5-flash': { canDisable: true, disableByDefault: true },
+  'google/gemini-1.5-pro': { canDisable: true, disableByDefault: true },
+  'arcee-ai/trinity-mini:free': { canDisable: false },
+  'arcee-ai/trinity-large-preview:free': { canDisable: false },
+  'arcee-ai/trinity-large': { canDisable: false },
+  'z-ai/glm-4.5-air:free': { canDisable: false },
+  'z-ai/glm-4.5': { canDisable: false },
+};
+
+/**
+ * Get provider options for the current model
+ * Automatically handles thinking/reasoning token configuration
+ * based on the model's capabilities
+ *
+ * @returns Provider options object or empty object
+ */
+export function getProviderOptions(): Record<string, unknown> {
+  if (AI_PROVIDER !== 'openrouter') {
+    return {};
+  }
+
+  const modelId = getCategorizationModelId();
+  const config = MODEL_THINKING_CONFIG[modelId];
+
+  if (config?.canDisable && config?.disableByDefault) {
+    return {
+      openrouter: {
+        reasoning: {
+          effort: 'none',
+        },
+      },
+    };
+  }
+
+  return {};
 }

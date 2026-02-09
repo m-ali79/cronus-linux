@@ -1,6 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Bot, User, CheckCircle2, Sparkles, Loader2 } from 'lucide-react'
+import {
+  Send,
+  Bot,
+  User,
+  CheckCircle2,
+  Sparkles,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { trpc } from '../../utils/trpc'
@@ -12,6 +22,7 @@ interface Message {
   role: 'user' | 'ai'
   content: string
   timestamp: Date
+  reasoning?: string
 }
 
 interface GoalChatQuestioningProps {
@@ -35,13 +46,27 @@ export function GoalChatQuestioning({
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [refinedGoal, setRefinedGoal] = useState<string | null>(null)
+  const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const hasAnalysisStarted = useRef(false)
 
   const analyzeGoalMutation = trpc.user.analyzeGoal.useMutation()
 
+  const toggleReasoning = (messageId: string) => {
+    setExpandedReasoning((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId)
+      } else {
+        newSet.add(messageId)
+      }
+      return newSet
+    })
+  }
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   useEffect(() => {
@@ -49,7 +74,8 @@ export function GoalChatQuestioning({
   }, [messages])
 
   useEffect(() => {
-    if (initialGoal && messages.length === 0) {
+    if (initialGoal && messages.length === 0 && !hasAnalysisStarted.current) {
+      hasAnalysisStarted.current = true
       const userMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
@@ -78,7 +104,7 @@ export function GoalChatQuestioning({
 
       setConfidence(result.confidence)
 
-      if (result.confidence >= 100 && result.refinedGoal) {
+      if (result.confidence >= 80 && result.refinedGoal) {
         setRefinedGoal(result.refinedGoal)
         setIsComplete(true)
 
@@ -86,7 +112,8 @@ export function GoalChatQuestioning({
           id: (Date.now() + 1).toString(),
           role: 'ai',
           content: `Perfect! I now have a clear understanding of your goals.\n\n**Refined Goal:**\n${result.refinedGoal}`,
-          timestamp: new Date()
+          timestamp: new Date(),
+          reasoning: result.reasoning
         }
         setMessages((prev) => [...prev, aiMessage])
       } else if (result.question) {
@@ -94,7 +121,8 @@ export function GoalChatQuestioning({
           id: (Date.now() + 1).toString(),
           role: 'ai',
           content: result.question,
-          timestamp: new Date()
+          timestamp: new Date(),
+          reasoning: result.reasoning
         }
         setMessages((prev) => [...prev, aiMessage])
       }
@@ -263,6 +291,44 @@ export function GoalChatQuestioning({
                     minute: '2-digit'
                   })}
                 </div>
+
+                {message.role === 'ai' && message.reasoning && (
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <button
+                      onClick={() => toggleReasoning(message.id)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+                    >
+                      <Lightbulb className="w-3 h-3 text-amber-500/70 group-hover:text-amber-500 transition-colors" />
+                      <span>
+                        {expandedReasoning.has(message.id) ? 'Hide reasoning' : 'Show reasoning'}
+                      </span>
+                      {expandedReasoning.has(message.id) ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+
+                    <AnimatePresence>
+                      {expandedReasoning.has(message.id) && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10 text-xs text-muted-foreground leading-relaxed">
+                            <span className="font-medium text-amber-600/80">
+                              Why this question:{' '}
+                            </span>
+                            {message.reasoning}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}

@@ -1,7 +1,12 @@
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
-import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
+import {
+  type FinishReason,
+  getCategorizationModel,
+  getCategorizationModelId,
+  getProviderOptions,
+} from './llmProvider';
 
 // NEW Zod schema for LLM output: Expecting the name of one of the user's categories
 export interface CategoryChoice {
@@ -144,13 +149,14 @@ export async function getLLMCategoryChoice(
   try {
     const result = await generateText({
       model: getCategorizationModel(),
-      temperature: 0, // Deterministic output
+      temperature: 0,
       messages: promptInput,
       output: Output.object({
         schema: CategoryChoiceSchema,
         name: 'category_choice',
         description: "Chosen category + short summary + short reasoning. Don't invent facts.",
       }),
+      providerOptions: getProviderOptions(),
     });
 
     const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
@@ -213,6 +219,7 @@ BROWSER: ${activityDetails.browser || ''}
       messages: prompt,
       maxOutputTokens: 50,
       temperature: 0.3,
+      providerOptions: getProviderOptions(),
     });
     return text.trim() || null;
   } catch (error) {
@@ -240,6 +247,7 @@ export async function isTitleInformative(title: string): Promise<boolean> {
       messages: prompt,
       maxOutputTokens: 3,
       temperature: 0,
+      providerOptions: getProviderOptions(),
     });
     const answer = text.trim().toLowerCase();
     const result = answer?.startsWith('yes') ?? false;
@@ -272,6 +280,7 @@ export async function generateActivitySummary(activityData: any): Promise<string
       messages: prompt,
       maxOutputTokens: 50,
       temperature: 0.3,
+      providerOptions: getProviderOptions(),
     });
     const generatedTitle = text.trim();
     return generatedTitle;
@@ -313,8 +322,9 @@ export async function getEmojiForCategory(
     const { text } = await generateText({
       model: getCategorizationModel(),
       messages: prompt,
-      maxOutputTokens: 10, // Increased to accommodate more complex emojis
+      maxOutputTokens: 10,
       temperature: 0,
+      providerOptions: getProviderOptions(),
     });
     const emoji = text.trim() || null;
     // More robust validation: check if it's a single emoji character or sequence
@@ -377,28 +387,33 @@ function _buildGoalAnalysisPrompt(
   return [
     {
       role: 'system' as const,
-      content: `You are an AI assistant that helps users clarify their work goals and projects. Your job is to:
+      content: `You are an AI assistant that helps users clarify what counts as "WORK" vs "DISTRACTION" for their goals. Your job is to:
 
-1. Analyze the user's stated goals
-2. Determine how well you understand their objectives (confidence 0-100)
-3. If confidence < 80%, ask a specific clarifying question to gather more information
-4. If confidence >= 80%, provide a refined, comprehensive goal statement that captures all the details discussed
+1. Analyze the user's stated goals to understand work boundaries
+2. Determine how well you understand work vs distraction for this goal (confidence 0-100)
+3. If confidence < 80%, ask ONE specific clarifying question about work boundaries
+4. If confidence >= 80%, provide a comprehensive work/distraction boundary definition
 
-Be thorough but concise. Ask one question at a time. Focus on understanding:
-- What type of work/project they're doing
-- What technologies or tools they're using
-- What specific outcomes or milestones they're working toward
-- What would indicate success for them
+Your goal is NOT project planning. It's understanding real-time work decisions:
+- When the user is on YouTube, GitHub, StackOverflow - is that work or distraction?
+- When they're reading docs, watching tutorials, browsing repos - work or distraction?
 
-Examples of vague goals that need clarification:
-- "Build something" -> Need to know: What type? Web app? Mobile? Desktop?
-- "Work on my project" -> Need to know: What project? What are the goals?
-- "Learn coding" -> Need to know: What language? What type of projects?
+Ask clarifying questions like:
+- "Does searching on StackOverflow count as work for you?"
+- "Is watching tutorial videos work or distraction?"
+- "What about browsing GitHub repos?"
+- "Does reading documentation count as work?"
+- "Is researching best practices work?"
 
-Examples of clear goals (high confidence):
-- "Building a React web app for task management with user authentication and real-time sync"
-- "Studying for my CPA exam, focusing on audit and financial accounting sections"
-- "Developing a mobile fitness tracking app using Flutter with workout logging and progress charts"`,
+Examples of goals with clear boundaries (high confidence):
+- "Learning React by building a todo app. Work: coding, reading React docs, StackOverflow. Distraction: random YouTube videos, browsing Twitter, reading unrelated tech blogs."
+- "Preparing for CPA exam. Work: reading study materials, watching exam prep videos, doing practice questions. Distraction: YouTube, social media, checking email."
+- "Building a mobile fitness app. Work: coding, reading Flutter docs, browsing Flutter packages on pub.dev. Distraction: browsing unrelated GitHub repos, watching entertainment videos."
+
+Examples of goals needing clarification (low confidence):
+- "Learn coding" -> Ask: "Does watching YouTube tutorials count as work?"
+- "Build a project" -> Ask: "Does searching on StackOverflow count as work?"
+- "Study for exams" -> Ask: "Is watching educational videos work for you?"`,
     },
     {
       role: 'user' as const,
@@ -409,10 +424,10 @@ CURRENT GOAL STATEMENT:
 ${currentGoal}
 
 TASK:
-Analyze the goal and conversation history. Determine your confidence (0-100) in understanding the user's objectives.
+Analyze the goal and conversation history. Determine your confidence (0-100) in understanding work vs distraction boundaries for this goal.
 
-If confidence < 80%, ask ONE specific clarifying question that would most improve your understanding.
-If confidence >= 80%, provide a refined, comprehensive goal statement that incorporates all the information gathered.
+If confidence < 80%, ask ONE specific clarifying question about work boundaries.
+If confidence >= 80%, provide a refined goal statement that clearly defines what counts as WORK vs DISTRACTION.
 
 Respond with your confidence score, question (if needed), refined goal (if confident), and reasoning.`,
     },
@@ -436,7 +451,11 @@ export async function analyzeGoalWithAI(
         description:
           'Analysis of user goal with confidence score and clarifying question or refined goal.',
       }),
+      providerOptions: getProviderOptions(),
     });
+
+    // Only log the JSON output
+    console.log(JSON.stringify(result.output, null, 2));
 
     const parsed = GoalAnalysisSchema.safeParse(result.output);
     if (!parsed.success) {

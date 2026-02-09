@@ -117,7 +117,7 @@ const GoalInputForm = ({
         conversationHistory: []
       })
 
-      if (result.confidence >= 100 && result.refinedGoal) {
+      if (result.confidence >= 80 && result.refinedGoal) {
         setIsSaving(true)
         updateGoalsMutation.mutate({
           token,

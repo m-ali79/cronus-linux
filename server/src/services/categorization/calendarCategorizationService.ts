@@ -4,7 +4,12 @@ import { Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
 import { UserModel } from '../../models/user';
 import type { CalendarEvent } from '../suggestions/suggestionGenerationService';
-import { type FinishReason, getCategorizationModel, getCategorizationModelId } from './llmProvider';
+import {
+  type FinishReason,
+  getCategorizationModel,
+  getCategorizationModelId,
+  getProviderOptions,
+} from './llmProvider';
 
 export interface CategorizationResult {
   categoryId: string | null;
@@ -90,6 +95,7 @@ Respond with the category name and brief reasoning.`,
         name: 'calendar_category_choice',
         description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
       }),
+      providerOptions: getProviderOptions(),
     });
 
     const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
