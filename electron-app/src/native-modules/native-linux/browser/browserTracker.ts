@@ -54,6 +54,8 @@ export class BrowserTracker {
         return 'chrome'
       case 'arc':
         return 'arc'
+      case 'helium':
+        return 'helium'
       default:
         return 'chrome'
     }

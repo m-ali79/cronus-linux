@@ -135,7 +135,7 @@ export interface ScreenshotResult {
 // For Hyprland-only v1 we intentionally map other Chromium-family browsers into these buckets:
 // - Brave -> 'chrome'
 // - Helium -> 'arc'
-export type LinuxBrowserType = 'chrome' | 'arc' | null
+export type LinuxBrowserType = 'chrome' | 'arc' | 'helium' | null
 
 /**
  * Browser detection mapping from window class to browser type
@@ -151,8 +151,8 @@ export const BROWSER_DETECTION: Record<string, LinuxBrowserType> = {
   'Brave-browser': 'chrome',
   Arc: 'arc',
   arc: 'arc',
-  Helium: 'arc',
-  helium: 'arc'
+  Helium: 'helium',
+  helium: 'helium'
 }
 
 /**
