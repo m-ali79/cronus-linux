@@ -1,6 +1,7 @@
 const port = chrome.runtime.connectNative('com.cronus.app')
 
 const browserType = (() => {
+  if (navigator.userAgent.includes('Helium')) return 'helium'
   if (navigator.userAgent.includes('Brave')) return 'brave'
   if (navigator.userAgent.includes('Edg')) return 'edge'
   if (navigator.userAgent.includes('Arc')) return 'arc'
