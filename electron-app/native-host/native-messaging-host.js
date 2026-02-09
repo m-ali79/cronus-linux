@@ -6,6 +6,35 @@ const path = require('path')
 let writeTimer = null
 const DEBOUNCE_MS = 7000
 
+const EXTENSION_ID_MAPPING = {
+  oalpgmdabmdbcaojnceoafmolpnhnajf: 'helium',
+  E0BF6C301C3120E9D24E05CEBFD7D095: 'chrome'
+}
+
+function determineBrowserType(extensionId, userAgentHint) {
+  if (extensionId && EXTENSION_ID_MAPPING[extensionId]) {
+    return EXTENSION_ID_MAPPING[extensionId]
+  }
+
+  if (userAgentHint && userAgentHint.includes('Helium')) {
+    return 'helium'
+  }
+
+  if (userAgentHint && userAgentHint.includes('Brave')) {
+    return 'brave'
+  }
+
+  if (userAgentHint && userAgentHint.includes('Edg')) {
+    return 'edge'
+  }
+
+  if (userAgentHint && userAgentHint.includes('Arc')) {
+    return 'arc'
+  }
+
+  return 'chrome'
+}
+
 function readMessage() {
   try {
     const header = process.stdin.read(4)
@@ -38,12 +67,14 @@ function handleMessage(message) {
 
   writeTimer = setTimeout(() => {
     try {
-      const browserType = message.browser || 'chrome'
+      const { extensionId, userAgentHint, url } = message
+      const browserType = determineBrowserType(extensionId, userAgentHint)
       const filePath = `/tmp/cronus-url-${browserType}.json`
 
       const data = {
-        url: message.url,
+        url: url,
         browser: browserType,
+        extensionId: extensionId,
         timestamp: Date.now()
       }
 
