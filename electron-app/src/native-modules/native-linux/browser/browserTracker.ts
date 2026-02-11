@@ -1,22 +1,22 @@
 import { readFileSync } from 'fs'
 import { ActiveWindowDetails } from 'shared'
-import { LinuxBrowserType } from '../types'
 
-interface BrowserTab {
+interface LatestUrl {
   url: string
+  timestamp: number
 }
 
 export class BrowserTracker {
   private isRunning = false
+  private readonly FILE_PATH = '/tmp/cronus-url-latest.json'
 
   async start(): Promise<void> {
     if (this.isRunning) {
       console.log('[BrowserTracker] Already running')
       return
     }
-
     this.isRunning = true
-    console.log('[BrowserTracker] Started (File-based tracking)')
+    console.log('[BrowserTracker] Started (Single-file tracking)')
   }
 
   stop(): void {
@@ -24,40 +24,24 @@ export class BrowserTracker {
     console.log('[BrowserTracker] Stopped')
   }
 
-  async getCurrentTab(browserType: LinuxBrowserType): Promise<BrowserTab | null> {
-    if (!this.isRunning || !browserType) {
+  async getCurrentUrl(): Promise<LatestUrl | null> {
+    if (!this.isRunning) {
       return null
     }
 
     try {
-      const fileName = this.getBrowserFileName(browserType)
-      const filePath = `/tmp/cronus-url-${fileName}.json`
-
-      const data = readFileSync(filePath, 'utf8')
-      const { url, timestamp } = JSON.parse(data)
-
-      const age = Date.now() - timestamp
+      const data = readFileSync(this.FILE_PATH, 'utf8')
+      const parsed = JSON.parse(data)
+      
+      const age = Date.now() - parsed.timestamp
       if (age > 15000) {
         console.log(`[BrowserTracker] URL stale (${age}ms old)`)
         return null
       }
 
-      return { url }
+      return { url: parsed.url, timestamp: parsed.timestamp }
     } catch (error) {
       return null
-    }
-  }
-
-  private getBrowserFileName(browserType: LinuxBrowserType): string {
-    switch (browserType) {
-      case 'chrome':
-        return 'chrome'
-      case 'arc':
-        return 'arc'
-      case 'helium':
-        return 'helium'
-      default:
-        return 'chrome'
     }
   }
 
@@ -66,17 +50,17 @@ export class BrowserTracker {
       return details
     }
 
-    const tab = await this.getCurrentTab(details.browser as LinuxBrowserType)
+    const latest = await this.getCurrentUrl()
 
-    if (tab) {
-      console.log(`[BrowserTracker] URL enrichment success: ${tab.url.substring(0, 50)}...`)
+    if (latest) {
+      console.log(`[BrowserTracker] URL enriched: ${latest.url.substring(0, 50)}...`)
       return {
         ...details,
-        url: tab.url
+        url: latest.url
       }
     }
 
-    console.warn(`[BrowserTracker] No URL available for ${details.browser}`)
+    console.warn(`[BrowserTracker] No URL available`)
     return details
   }
 }

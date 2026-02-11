@@ -6,7 +6,7 @@ function connectNativeHost() {
     port = chrome.runtime.connectNative('com.cronus.app')
     isConnected = true
     console.log('[Cronus] Native host connected')
-    
+
     port.onDisconnect.addListener(() => {
       console.error('[Cronus] Native host disconnected:', chrome.runtime.lastError)
       isConnected = false
@@ -18,36 +18,27 @@ function connectNativeHost() {
   }
 }
 
-// Initial connection
 connectNativeHost()
-
-const browserType = (() => {
-  if (navigator.userAgent.includes('Helium')) return 'helium'
-  if (navigator.userAgent.includes('Brave')) return 'brave'
-  if (navigator.userAgent.includes('Edg')) return 'edge'
-  if (navigator.userAgent.includes('Arc')) return 'arc'
-  return 'chrome'
-})()
 
 function sendTabChange(url) {
   if (!isConnected || !port) {
-    console.warn('[Cronus] Not connected to native host, attempting reconnect...')
+    console.warn('[Cronus] Not connected, attempting reconnect...')
     connectNativeHost()
     if (!isConnected) {
       console.error('[Cronus] Failed to reconnect')
       return
     }
   }
-  
+
   try {
     port.postMessage({
       type: 'tab-change',
       url: url,
-      browser: browserType
+      timestamp: Date.now()
     })
     console.log('[Cronus] Sent tab change:', url)
   } catch (error) {
-    console.error('[Cronus] Failed to send message:', error)
+    console.error('[Cronus] Failed to send:', error)
     isConnected = false
   }
 }
@@ -59,7 +50,7 @@ chrome.tabs.onActivated.addListener(async () => {
       sendTabChange(tab.url)
     }
   } catch (error) {
-    console.error('[Cronus] Error in onActivated:', error)
+    console.error('[Cronus] Error:', error)
   }
 })
 
@@ -69,4 +60,4 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 })
 
-console.log('[Cronus] Extension loaded, browser type:', browserType)
+console.log('[Cronus] Extension loaded')
