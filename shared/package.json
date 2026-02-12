@@ -7,20 +7,32 @@
   "types": "dist/types.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types.d.ts",
-      "import": "./dist/types.js"
+      "development": {
+        "import": "./types.ts",
+        "types": "./types.ts"
+      },
+      "bun": {
+        "import": "./types.ts",
+        "types": "./types.ts"
+      },
+      "default": {
+        "import": "./dist/types.js",
+        "types": "./dist/types.d.ts"
+      }
     },
-    "./types": {
-      "types": "./dist/types.d.ts",
-      "import": "./dist/types.js"
-    },
-    "./categories": {
-      "types": "./dist/categories.d.ts",
-      "import": "./dist/categories.js"
-    },
-    "./distractionRules": {
-      "types": "./dist/distractionRules.d.ts",
-      "import": "./dist/distractionRules.js"
+    "./*": {
+      "development": {
+        "import": "./*.ts",
+        "types": "./*.ts"
+      },
+      "bun": {
+        "import": "./*.ts",
+        "types": "./*.ts"
+      },
+      "default": {
+        "import": "./dist/*.js",
+        "types": "./dist/*.d.ts"
+      }
     }
   },
   "scripts": {
