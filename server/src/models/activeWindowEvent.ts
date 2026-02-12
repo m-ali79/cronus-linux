@@ -25,6 +25,7 @@ const activeWindowEventSchema = new Schema(
     url: { type: String },
     content: { type: String },
     goalId: { type: String, required: false, index: true }, // For goal-based caching of browser activities
+    cachedForGoalId: { type: String, default: null, index: true }, // Track which goal this event is cached for
     categoryId: { type: String, required: false, index: true },
     categoryReasoning: { type: String, required: false },
     llmSummary: { type: String, required: false },
@@ -44,12 +45,14 @@ const activeWindowEventSchema = new Schema(
   { timestamps: true }
 );
 
+console.log('[Schema] Added cachedForGoalId field');
+
 // Compound index for efficient querying by userId and timestamp
 activeWindowEventSchema.index({ userId: 1, timestamp: -1 });
 activeWindowEventSchema.index({ userId: 1, timestamp: 1 });
 activeWindowEventSchema.index({ userId: 1, type: 1, title: 1, lastUsed: -1 });
 // Index for goal-based cache invalidation
-activeWindowEventSchema.index({ userId: 1, type: 1, goalId: 1 });
+activeWindowEventSchema.index({ userId: 1, type: 1, goalId: 1, cachedForGoalId: 1 });
 
 // Check if model already exists to prevent OverwriteModelError in production
 let ActiveWindowEventModel: mongoose.Model<IActiveWindowEvent>;

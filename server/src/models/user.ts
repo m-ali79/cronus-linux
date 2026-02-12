@@ -39,9 +39,11 @@ export interface IUser extends Document {
   };
   userProjectsAndGoals: string;
   multiPurposeApps: string[];
+  multiPurposeWebsites: string[];
   lastChurnEmailSent?: Date;
   referralSource?: string;
   isInEU: boolean;
+  currentGoalId?: string | null;
 }
 
 export const userSchema = new Schema({
@@ -132,6 +134,10 @@ export const userSchema = new Schema({
     type: [String],
     default: [],
   },
+  multiPurposeWebsites: {
+    type: [String],
+    default: [],
+  },
   lastChurnEmailSent: {
     type: Date,
     required: false,
@@ -143,6 +149,10 @@ export const userSchema = new Schema({
   isInEU: {
     type: Boolean,
     default: false,
+  },
+  currentGoalId: {
+    type: String,
+    default: null,
   },
 });
 
