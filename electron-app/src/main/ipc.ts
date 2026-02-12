@@ -9,12 +9,6 @@ import { getAllDependencies, getNativeWindows, initNativeModule } from './native
 import { redactSensitiveContent } from './redaction'
 import { setAllowForcedQuit } from './windows'
 
-// Type-safe global functions for window tracking
-declare global {
-  let startActiveWindowObserver: (() => void) | undefined
-  let stopActiveWindowObserver: (() => void) | undefined
-}
-
 export interface ActivityToRecategorize {
   identifier: string
   nameToDisplay: string

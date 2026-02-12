@@ -1,21 +1,10 @@
 import { app } from 'electron'
 import path from 'path'
-import type { ActiveWindowDetails } from 'shared/types'
-
-// TODO: duplicated in renderer/src/components/Settings/PermissionsStatus.tsx
-// Permission types enum to match native layer
-export enum PermissionType {
-  Accessibility = 0,
-  AppleEvents = 1,
-  ScreenRecording = 2
-}
-
-// Permission status enum to match native layer
-export enum PermissionStatus {
-  Denied = 0,
-  Granted = 1,
-  Pending = 2
-}
+import type {
+  ActiveWindowDetails,
+  PermissionType,
+  PermissionStatus
+} from '../../../../shared/types'
 
 interface ScreenshotOCRResult {
   success: boolean
@@ -40,14 +29,14 @@ const isDevelopment = !app.isPackaged
 
 const addonPath = isDevelopment
   ? path.join(
-    process.cwd(),
-    'src',
-    'native-modules',
-    'native-windows',
-    'build',
-    'Release',
-    'nativeWindows.node'
-  )
+      process.cwd(),
+      'src',
+      'native-modules',
+      'native-windows',
+      'build',
+      'Release',
+      'nativeWindows.node'
+    )
   : path.join(process.resourcesPath, 'native', 'nativeWindows.node')
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

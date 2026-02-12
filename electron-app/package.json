@@ -4,7 +4,10 @@
   "private": true,
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
-  "author": "example.com",
+  "author": {
+    "name": "Cronus Team",
+    "email": "team@whatdidyougetdonetoday.ai"
+  },
   "homepage": "https://www.whatdidyougetdonetoday.ai",
   "repository": {
     "type": "git",
@@ -61,10 +64,12 @@
     "productName": "Cronus",
     "files": [
       "out/",
+      "node_modules/shared/dist/**/*",
       "node_modules/",
       "!build-assets/**/*",
       "package.json"
     ],
+    "afterPack": "./afterPack.js",
     "publish": [
       {
         "provider": "s3",
@@ -83,7 +88,13 @@
       "icon": "build/icon.icns",
       "extendInfo": {
         "NSAppleEventsUsageDescription": "Cronus needs to access information from your web browser to track your activity."
-      }
+      },
+      "extraResources": [
+        {
+          "from": "src/native-modules/native-windows/build/Release/nativeWindows.node",
+          "to": "native/nativeWindows.node"
+        }
+      ]
     },
     "dmg": {
       "sign": true
@@ -115,21 +126,18 @@
       "executableName": "cronus",
       "artifactName": "Cronus-${version}-${arch}.${ext}",
       "desktop": {
-        "Name": "Cronus",
-        "Comment": "AI-powered time tracking and productivity",
-        "Categories": "Utility;Office;",
-        "StartupWMClass": "cronus"
+        "entry": {
+          "Name": "Cronus",
+          "Comment": "AI-powered time tracking and productivity",
+          "Categories": "Utility;Office;",
+          "StartupWMClass": "cronus"
+        }
       }
     },
     "pacman": {
       "depends": [
         "electron",
         "glib2"
-      ],
-      "optDepends": [
-        "grim: Screenshot capture for Wayland",
-        "tesseract: OCR text extraction",
-        "tesseract-data-eng: English language data for OCR"
       ]
     }
   },

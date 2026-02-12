@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PermissionType, PermissionStatus } from '../components/Settings/PermissionsStatus'
+import { PermissionType, PermissionStatus } from 'shared/types'
 
 export function useOnboardingPermissions() {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false)

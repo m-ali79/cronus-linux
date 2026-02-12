@@ -4,7 +4,13 @@ import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      lib: {
+        entry: resolve(__dirname, 'src/main/index.ts'),
+        formats: ['cjs']
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

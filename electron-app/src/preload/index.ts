@@ -1,20 +1,7 @@
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ActiveWindowDetails } from 'shared/types'
+import { ActiveWindowDetails, PermissionType, PermissionStatus } from '../../../shared/types'
 import { UpdateStatus } from '../shared/update'
-
-// Permission types and status enums (match the native layer)
-export enum PermissionType {
-  Accessibility = 0,
-  AppleEvents = 1,
-  ScreenRecording = 2
-}
-
-export enum PermissionStatus {
-  Denied = 0,
-  Granted = 1,
-  Pending = 2
-}
 
 export interface PermissionInfo {
   type: PermissionType

@@ -1,23 +1,9 @@
+import { PermissionType, PermissionStatus } from 'shared/types'
 import { AlertTriangle, CheckCircle, Loader2, Shield, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-
-// Import types from preload - use proper enum imports
-// Define enums locally to match preload definitions
-
-export enum PermissionType {
-  Accessibility = 0,
-  AppleEvents = 1,
-  ScreenRecording = 2
-}
-
-export enum PermissionStatus {
-  Denied = 0,
-  Granted = 1,
-  Pending = 2
-}
 
 interface PermissionInfo {
   type: PermissionType

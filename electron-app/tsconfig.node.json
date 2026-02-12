@@ -6,7 +6,8 @@
     "src/preload/**/*",
     "src/shared/update.ts",
     "src/env.d.ts",
-    "src/native-modules/**/*"
+    "src/native-modules/**/*",
+    "src/global.d.ts"
   ],
   "exclude": [
     "node_modules",

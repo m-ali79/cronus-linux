@@ -1,7 +1,7 @@
 import { Info, PlusCircle } from 'lucide-react'
 import React from 'react'
 import { Category } from 'shared'
-import type { ActivityToRecategorize } from '../App'
+import type { ActivityToRecategorize } from '../hooks/useActivityTracking'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { getDarkerColor, getLighterColor, hexToRgba } from '../lib/colors'
 import { ActivityIcon } from './ActivityList/ActivityIcon'

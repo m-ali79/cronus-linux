@@ -5,7 +5,7 @@
  * Implements the same interface as native-windows for feature parity.
  */
 
-import { ActiveWindowDetails } from 'shared'
+import { ActiveWindowDetails, PermissionType, PermissionStatus } from '../../../../shared/types'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { hyprlandWindowTracker } from './hyprland/windowTracker'
@@ -20,25 +20,6 @@ import { LinuxDependencyType, DependencyStatus, ScreenshotResult } from './types
 export { LinuxDependencyType, DependencyStatus }
 export type { DependencyInfo } from './types'
 export { getAllDependencies } from './permissions/dependencyChecker'
-
-/**
- * Permission types enum - maps to LinuxDependencyType for API compatibility
- * These match the macOS PermissionType enum values
- */
-export enum PermissionType {
-  Accessibility = 0, // Maps to Hyprland
-  AppleEvents = 1, // Maps to BrowserDebug (not really used on Linux)
-  ScreenRecording = 2 // Maps to Grim
-}
-
-/**
- * Permission status enum - matches macOS
- */
-export enum PermissionStatus {
-  Denied = 0,
-  Granted = 1,
-  Pending = 2
-}
 
 /**
  * NativeLinux class - implements same interface as NativeWindows (macOS)

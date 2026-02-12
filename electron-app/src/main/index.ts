@@ -18,12 +18,6 @@ import { createFloatingWindow, createMainWindow, setIsAppQuitting } from './wind
 const APP_ID = 'com.cronus.app'
 const LINUX_WM_CLASS = 'cronus'
 
-declare global {
-  // Expose these for IPC handlers that need to control the native observer lifecycle.
-  let stopActiveWindowObserver: (() => void) | undefined
-  let startActiveWindowObserver: (() => void) | undefined
-}
-
 /**
  * Ensure a stable app identity across different dev launch methods on Linux.
  *

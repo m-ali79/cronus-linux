@@ -1,21 +1,9 @@
+import { PermissionType, PermissionStatus } from '../../../shared/types'
 import { ElectronAPI } from '@electron-toolkit/preload'
 import { FloatingWindowApi } from './floatingPreload'
 
 // Use the BaseElectronAPI type from electron-toolkit if available
 type BaseElectronAPI = ElectronAPI
-
-// Permission types and status enums (must match the preload)
-export enum PermissionType {
-  Accessibility = 0,
-  AppleEvents = 1,
-  ScreenRecording = 2
-}
-
-export enum PermissionStatus {
-  Denied = 0,
-  Granted = 1,
-  Pending = 2
-}
 
 // Linux dependency info type
 export interface LinuxDependencyInfo {

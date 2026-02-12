@@ -1,4 +1,4 @@
-import type { ActiveWindowDetails } from 'shared/types'
+import { ActiveWindowDetails, PermissionType } from 'shared/types'
 
 import type { DependencyInfo } from '../native-modules/native-linux/types'
 
@@ -7,10 +7,10 @@ interface NativeWindows {
   stopActiveWindowObserver: () => void
   setPermissionDialogsEnabled: (enabled: boolean) => void
   getPermissionDialogsEnabled: () => boolean
-  getPermissionStatus: (permissionType: number) => number
+  getPermissionStatus: (permissionType: PermissionType) => number
   hasPermissionsForTitleExtraction: () => boolean
   hasPermissionsForContentExtraction: () => boolean
-  requestPermission: (permissionType: number) => void
+  requestPermission: (permissionType: PermissionType) => void
   captureScreenshotAndOCRForCurrentWindow: () => {
     success: boolean
     error?: string
@@ -25,13 +25,11 @@ interface NativeWindows {
   getAppIconPath: (appName: string) => string | null
 }
 
-type PermissionTypeEnum = Record<string, number>
-
 type GetAllDependenciesFunction = (() => Promise<DependencyInfo[]>) | undefined
 
 let initPromise: Promise<void> | undefined
 let nativeWindows: NativeWindows | undefined
-let permissionType: PermissionTypeEnum | undefined
+let permissionType: typeof PermissionType | undefined
 let getAllDependenciesFn: GetAllDependenciesFunction | undefined
 
 // Initialize native module based on platform (memoized / idempotent)
@@ -43,7 +41,7 @@ export async function initNativeModule(): Promise<void> {
       try {
         const nativeLinuxModule = await import('../native-modules/native-linux/index.js')
         nativeWindows = nativeLinuxModule.nativeLinux as NativeWindows
-        permissionType = nativeLinuxModule.PermissionType as PermissionTypeEnum
+        permissionType = PermissionType
         getAllDependenciesFn = nativeLinuxModule.getAllDependencies as
           | GetAllDependenciesFunction
           | undefined
@@ -55,7 +53,7 @@ export async function initNativeModule(): Promise<void> {
       try {
         const nativeWindowsModule = await import('../native-modules/native-windows/index.js')
         nativeWindows = nativeWindowsModule.nativeWindows as NativeWindows
-        permissionType = nativeWindowsModule.PermissionType as PermissionTypeEnum
+        permissionType = PermissionType
         getAllDependenciesFn = undefined // macOS doesn't have getAllDependencies
       } catch (error) {
         console.error('Failed to load native-windows module:', error)
@@ -78,7 +76,7 @@ export function getNativeWindows(): NativeWindows {
   return nativeWindows
 }
 
-export function getPermissionType(): PermissionTypeEnum {
+export function getPermissionType(): typeof PermissionType {
   if (!permissionType) {
     throw new Error('Native module not initialized. Call initNativeModule() first.')
   }
@@ -88,4 +86,3 @@ export function getPermissionType(): PermissionTypeEnum {
 export function getAllDependencies(): GetAllDependenciesFunction {
   return getAllDependenciesFn
 }
-

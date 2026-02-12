@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PermissionStatus, PermissionType } from '../components/Settings/PermissionsStatus'
+import { PermissionStatus, PermissionType } from 'shared/types'
 
 interface UseAccessibilityPermissionProps {
   token: string | null
@@ -10,7 +10,9 @@ interface UseAccessibilityPermissionReturn {
   missingAccessibilityPermissions: boolean
 }
 
-export function useAccessibilityPermission({ token }: UseAccessibilityPermissionProps): UseAccessibilityPermissionReturn {
+export function useAccessibilityPermission({
+  token
+}: UseAccessibilityPermissionProps): UseAccessibilityPermissionReturn {
   const [accessibilityPermissionChecked, setAccessibilityPermissionChecked] = useState(false)
   const [missingAccessibilityPermissions, setMissingAccessibilityPermissions] = useState(false)
 

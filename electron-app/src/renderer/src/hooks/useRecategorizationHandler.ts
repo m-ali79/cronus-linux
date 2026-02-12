@@ -1,5 +1,5 @@
 import { ActiveWindowEvent, Category } from 'shared'
-import type { ActivityToRecategorize } from '../App'
+import type { ActivityToRecategorize } from '../hooks/useActivityTracking'
 import { DisplayWindowInfo, getIdentifierFromUrl } from '../utils/distractionStatusBarUIHelpers'
 
 export const useRecategorizationHandler = (

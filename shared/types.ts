@@ -21,6 +21,25 @@ export interface User {
   userProjectsAndGoals?: string;
 }
 
+/**
+ * Permission types enum - used across all platforms (macOS, Windows, Linux)
+ * These represent the types of system permissions the app may need
+ */
+export enum PermissionType {
+  Accessibility = 0,
+  AppleEvents = 1,
+  ScreenRecording = 2,
+}
+
+/**
+ * Permission status enum - represents the state of a permission
+ */
+export enum PermissionStatus {
+  Denied = 0,
+  Granted = 1,
+  Pending = 2,
+}
+
 export interface ActiveWindowDetails {
   windowId?: number;
   ownerName: string;
@@ -34,6 +53,16 @@ export interface ActiveWindowDetails {
   localScreenshotPath?: string | null;
   screenshotS3Url?: string | null;
   durationMs?: number;
+  captureReason?:
+    | 'user'
+    | 'ai'
+    | 'reminder'
+    | 'schedule'
+    | 'app_switch'
+    | 'periodic_backup'
+    | 'system_sleep'
+    | 'system_wake'
+    | null;
 }
 
 export interface ActiveWindowEvent extends ActiveWindowDetails {
