@@ -106,6 +106,7 @@ class NativeLinux {
           // Capture OCR after window switch debounce (stabilization drops events in first 10s)
           if ((await hasPermissionsForContentExtraction()) && enrichedDetails) {
             let skipOcr = false
+            console.log(`[OCR-Cache] Provider exists: ${!!this.checkCategorizationProvider}`)
             if (this.checkCategorizationProvider) {
               try {
                 const checkResult = await this.checkCategorizationProvider({
@@ -114,6 +115,9 @@ class NativeLinux {
                   title: enrichedDetails.title ?? '',
                   url: enrichedDetails.url ?? null
                 })
+                console.log(
+                  `[OCR-Cache] Check result: isCategorized=${checkResult?.isCategorized}, hasContent=${checkResult?.content != null}`
+                )
                 if (checkResult.isCategorized && checkResult.content != null) {
                   enrichedDetails = {
                     ...enrichedDetails,
@@ -129,6 +133,7 @@ class NativeLinux {
                 /* fail-open: run OCR below */
               }
             }
+            console.log(`[OCR-Cache] Decision: ${skipOcr ? 'SKIP OCR' : 'RUN OCR'}`)
             if (!skipOcr) {
               try {
                 console.log(`[OCR] Starting OCR capture for ${enrichedDetails.ownerName}`)

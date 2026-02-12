@@ -10,7 +10,9 @@ export function CheckCategorizationIpcListener(): null {
 
   useEffect(() => {
     const cleanup = window.api.onCheckCategorizationRequest(async (payload, replyChannel) => {
+      console.log(`[IPC-Renderer] Received check request for ${payload.ownerName}`)
       const token = localStorage.getItem('accessToken')
+      console.log(`[IPC-Renderer] Has token: ${!!token}`)
       if (!token) {
         window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
         return
@@ -23,6 +25,7 @@ export function CheckCategorizationIpcListener(): null {
           title: payload.title,
           url: payload.url ?? undefined
         })
+        console.log(`[IPC-Renderer] tRPC result: isCategorized=${result.isCategorized}`)
         window.api.sendCheckCategorizationResult(replyChannel, result)
       } catch {
         window.api.sendCheckCategorizationResult(replyChannel, { isCategorized: false })
