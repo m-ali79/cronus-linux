@@ -40,7 +40,13 @@ export async function categorizeActivity(
   >
 ): Promise<CategorizationResult> {
   // 1. History Check
-  const historyResult = await checkActivityHistory(userId, null, activeWindow);
+  // Fetch user's current goal for goal-based caching
+  const user = await UserModel.findById(userId).select('currentGoalId userProjectsAndGoals').lean();
+  const goalId = user?.currentGoalId ?? null;
+
+  console.log(`[Cache] CategorizationService checking with goalId: ${goalId}`);
+
+  const historyResult = await checkActivityHistory(userId, goalId, activeWindow);
   if (historyResult) {
     return {
       ...historyResult,
@@ -51,7 +57,6 @@ export async function categorizeActivity(
   }
 
   // 2. LLM-based Categorization by choosing from user's list
-  const user = await UserModel.findById(userId).select('userProjectsAndGoals').lean();
   const userProjectsAndGoals: string = user?.userProjectsAndGoals || '';
 
   const rawUserCategories = await CategoryModel.find({ userId, isArchived: { $ne: true } }).lean();
