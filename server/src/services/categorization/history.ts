@@ -40,6 +40,15 @@ export async function checkActivityHistory(
       }
     }
 
+    // Check if the URL matches any multi-purpose website patterns
+    if (url) {
+      const user = await UserModel.findById(userId).select('multiPurposeWebsites').lean();
+      if (user?.multiPurposeWebsites?.some((pattern) => url.includes(pattern))) {
+        console.log(`[Cache] Multi-purpose website ${url} - bypassing cache`);
+        return null;
+      }
+    }
+
     const queryCondition: any = { userId };
 
     // Windsurf doesn't put the project name in the title
@@ -49,15 +58,15 @@ export async function checkActivityHistory(
     if (url && type === 'browser') {
       // Most specific: Match by exact URL for browser activities
       queryCondition.url = url;
-      // Add goalId for browser activities to enable goal-based caching
-      queryCondition.goalId = goalId;
+      // Add cachedForGoalId for browser activities to enable goal-based caching
+      queryCondition.cachedForGoalId = goalId;
     } else if (type === 'browser' && title && title.trim() !== '' && (!url || url.trim() === '')) {
       // Next specific: Browser activity, no URL (or empty URL), but has a non-empty title
       // Match by ownerName AND title to distinguish between different tabs/windows of the same browser if URL is missing
       queryCondition.ownerName = ownerName;
       queryCondition.title = title;
-      // Add goalId for browser activities to enable goal-based caching
-      queryCondition.goalId = goalId;
+      // Add cachedForGoalId for browser activities to enable goal-based caching
+      queryCondition.cachedForGoalId = goalId;
     } else if (ownerName && isCodeEditor(ownerName) && title) {
       const projectName = getProjectNameFromTitle(title);
       if (projectName) {
@@ -79,11 +88,13 @@ export async function checkActivityHistory(
       return null;
     }
 
+    console.log(`[Cache] Query: ${JSON.stringify(queryCondition)}`);
     const lastEventWithSameIdentifier = await ActiveWindowEventModel.findOne(queryCondition)
       .sort({ timestamp: -1 })
       .select('categoryId categoryReasoning llmSummary content')
       .lean();
 
+    console.log(`[Cache] Found: ${!!lastEventWithSameIdentifier}`);
     if (lastEventWithSameIdentifier && lastEventWithSameIdentifier.categoryId) {
       const categoryId = lastEventWithSameIdentifier.categoryId as string;
 
@@ -116,16 +127,7 @@ export async function checkActivityHistory(
  * forcing re-categorization of browser activities.
  */
 export async function invalidateBrowserActivityCache(userId: string): Promise<void> {
-  try {
-    // Delete all browser activity events for this user
-    // This effectively clears the cache for browser activities
-    await ActiveWindowEventModel.deleteMany({
-      userId,
-      type: 'browser',
-    });
-    console.log(`[CategorizationService] Browser activity cache invalidated for user: ${userId}`);
-  } catch (error) {
-    console.error('[CategorizationService] Error during cache invalidation:', error);
-    throw error;
-  }
+  // Cache now invalidates via cachedForGoalId query mismatch
+  // No need to delete events - they remain for historical purposes
+  console.log(`[Cache] Browser cache logically invalidated for user: ${userId} (goal changed)`);
 }

@@ -25,7 +25,7 @@ export interface ActiveWindowDetails {
   windowId?: number;
   ownerName: string;
   type: 'window' | 'browser' | 'system' | 'manual' | 'calendar';
-  browser?: 'chrome' | 'safari' | 'arc' | null;
+  browser?: 'chrome' | 'safari' | 'arc' | 'firefox' | 'brave' | 'helium' | null;
   title?: string | null;
   url?: string | null;
   content?: string | null;
@@ -84,7 +84,7 @@ export enum DependencyType {
   Grim = 1,
   Tesseract = 2,
   DBus = 3,
-  BrowserDebug = 4
+  BrowserDebug = 4,
 }
 
 export interface LinuxDependency {

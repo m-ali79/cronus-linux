@@ -131,11 +131,11 @@ export interface ScreenshotResult {
  * Browser types supported on Linux
  */
 // NOTE: This must stay assignable to `shared.ActiveWindowDetails['browser']`.
-// macOS/server currently expect: 'chrome' | 'safari' | 'arc' | null (plus optional/undefined).
+// macOS/server currently expect: 'chrome' | 'safari' | 'arc' | 'firefox' | 'brave' | 'helium' | null (plus optional/undefined).
 // For Hyprland-only v1 we intentionally map other Chromium-family browsers into these buckets:
 // - Brave -> 'chrome'
 // - Helium -> 'arc'
-export type LinuxBrowserType = 'chrome' | 'arc' | null
+export type LinuxBrowserType = 'chrome' | 'safari' | 'arc' | 'firefox' | 'brave' | 'helium' | null
 
 /**
  * Browser detection mapping from window class to browser type
@@ -151,8 +151,8 @@ export const BROWSER_DETECTION: Record<string, LinuxBrowserType> = {
   'Brave-browser': 'chrome',
   Arc: 'arc',
   arc: 'arc',
-  Helium: 'arc',
-  helium: 'arc'
+  Helium: 'helium',
+  helium: 'helium'
 }
 
 /**

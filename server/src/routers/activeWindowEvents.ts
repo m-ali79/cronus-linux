@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ActiveWindowEvent } from '../../../shared/types';
 import { safeVerifyToken, safeVerifyTokenWithVersionTracking } from '../lib/authUtils';
 import { ActiveWindowEventModel } from '../models/activeWindowEvent';
+import { UserModel } from '../models/user';
 import { updateEventCategoryInDateRange as updateEventCategoryInDateRangeService } from '../services/move/updateEventCategoryInDateRange';
 import { publicProcedure, router } from '../trpc';
 
@@ -67,6 +68,10 @@ export const activeWindowEventsRouter = router({
     const categoryReasoning = categorizationResult.categoryReasoning;
     const llmSummary = categorizationResult.llmSummary;
 
+    // Fetch user's current goal for goal-based caching
+    const user = await UserModel.findById(userId).select('currentGoalId').lean();
+    const goalId = user?.currentGoalId ?? null;
+
     const eventToSave: ActiveWindowEvent = {
       userId,
       windowId,
@@ -82,6 +87,7 @@ export const activeWindowEventsRouter = router({
       categoryReasoning,
       llmSummary,
       lastCategorizationAt: categoryId ? new Date() : undefined,
+      cachedForGoalId: goalId, // Store which goal this event is cached for
     };
 
     try {
@@ -110,7 +116,14 @@ export const activeWindowEventsRouter = router({
       try {
         const decoded = safeVerifyToken(input.token);
         const userId = decoded.userId;
-        const historyResult = await checkActivityHistory(userId, {
+
+        // Fetch user's current goal for goal-based caching
+        const user = await UserModel.findById(userId).select('currentGoalId').lean();
+        const goalId = user?.currentGoalId ?? null;
+
+        console.log(`[Cache] Checking with goalId: ${goalId}`);
+
+        const historyResult = await checkActivityHistory(userId, goalId, {
           ownerName: input.ownerName,
           type: input.type,
           title: input.title,

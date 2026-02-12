@@ -4,7 +4,7 @@ export interface ActiveWindowEvent {
   windowId: number;
   ownerName: string;
   type: 'window' | 'browser' | 'system' | 'manual';
-  browser?: 'chrome' | 'safari' | 'arc' | null;
+  browser?: 'chrome' | 'safari' | 'arc' | 'firefox' | 'brave' | 'helium' | null;
   title?: string | null;
   url?: string | null;
   content?: string | null;

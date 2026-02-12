@@ -302,15 +302,18 @@ export async function registerIpcHandlers(
     llmSummary?: string
     content?: string
   }> => {
+    console.log(`[IPC] Checking categorization for ${payload.ownerName}`)
+    console.log(`[IPC] Main window exists: ${!!windows.mainWindow}`)
     if (!windows.mainWindow || windows.mainWindow.isDestroyed()) {
       return { isCategorized: false }
     }
     const replyChannel = `check-categorization-reply-${Date.now()}-${Math.random().toString(36).slice(2)}`
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
+        console.log(`[IPC] Timeout after 30s, returning uncategorized`)
         ipcMain.removeAllListeners(replyChannel)
         resolve({ isCategorized: false })
-      }, 15000)
+      }, 30000)
       ipcMain.once(
         replyChannel,
         (
@@ -323,6 +326,7 @@ export async function registerIpcHandlers(
             content?: string
           }
         ) => {
+          console.log(`[IPC] Result: isCategorized=${result.isCategorized}`)
           clearTimeout(timeout)
           resolve(result)
         }

@@ -102,7 +102,12 @@ export const userRouter = router({
 
       const updatedUser = await UserModel.findByIdAndUpdate(
         userId,
-        { $set: { userProjectsAndGoals: input.userProjectsAndGoals } },
+        {
+          $set: {
+            userProjectsAndGoals: input.userProjectsAndGoals,
+            currentGoalId: Date.now().toString(),
+          },
+        },
         { new: true }
       );
 
@@ -223,6 +228,48 @@ export const userRouter = router({
       return {
         success: true,
         multiPurposeApps: updatedUser.multiPurposeApps,
+      };
+    }),
+
+  getMultiPurposeWebsites: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const decoded = safeVerifyToken(input.token);
+      const userId = decoded.userId;
+
+      const user = await UserModel.findById(userId).select('multiPurposeWebsites').lean();
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      return user.multiPurposeWebsites || [];
+    }),
+
+  updateMultiPurposeWebsites: publicProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        websites: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const decoded = safeVerifyToken(input.token);
+      const userId = decoded.userId;
+
+      const updatedUser = await UserModel.findByIdAndUpdate(
+        userId,
+        { $set: { multiPurposeWebsites: input.websites } },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('User not found');
+      }
+
+      return {
+        success: true,
+        multiPurposeWebsites: updatedUser.multiPurposeWebsites,
       };
     }),
 

@@ -13,7 +13,7 @@
   "scripts": {
     "------ DEVELOPMENT ---------": "echo '------ DEVELOPMENT ---------'",
     "dev": "BROWSERSLIST_IGNORE_OLD_DATA=true VITE_BUILD_DATE=dev electron-vite dev",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps && node scripts/post-install.js",
     "------ LINTING & TYPE-CHECKING ---------": "echo '------ LINTING & TYPE-CHECKING ---------'",
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -98,6 +98,10 @@
       {
         "from": "src/native-modules/native-windows/build/Release/nativeWindows.node",
         "to": "native/nativeWindows.node"
+      },
+      {
+        "from": "native-host/",
+        "to": "native-host/"
       }
     ],
     "linux": {

@@ -347,7 +347,7 @@ export class HyprlandWindowTracker extends EventEmitter {
     if (lower.includes('chrome') || lower.includes('chromium')) return 'chrome'
     if (lower.includes('arc')) return 'arc'
     if (lower.includes('brave')) return 'chrome'
-    if (lower.includes('helium')) return 'arc'
+    if (lower.includes('helium')) return 'helium'
 
     return null
   }

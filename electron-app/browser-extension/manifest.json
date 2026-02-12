@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Cronus URL Tracker",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArT2sVEpJ+lZWdK+o0g7xwCc4e6kFHzgmpbfOXAMgr+NOJk+aKxtrgmqsH1cjFxuU0XCG7eejrNtKzorYNm4XqhNOuQ1HpWKyuT1FwBLjoDShK0WAdOyC++CHqKMynPHJC0jqB+y1e05AoyTZPFeDoIySQk4wmYTq1wh8vjTdInNNVuKBx/CZznlFWyl3JEaHNy/nvpX8MuIjAGsP30yx6JDUHntcAZ+gMUUxSG5WS0W0bZBmNNGWMmNZ9gWgbJQzC8totHLB7AojDjhjSqhxQnTr4KciJK0nH3LVwyZFAAOOkf7YGZKRxVvRutEz3r/tm7VqP+EXYuC0VpyGw5kMtQIDAQAB",
+  "version": "1.0.0",
+  "description": "Securely track active browser tab for Cronus time tracking",
+  "permissions": ["tabs", "nativeMessaging"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
