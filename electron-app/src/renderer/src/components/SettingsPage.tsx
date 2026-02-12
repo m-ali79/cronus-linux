@@ -11,6 +11,7 @@ import { GoogleCalendarSettings } from './Settings/GoogleCalendarSettings'
 import { LinuxDependenciesStatus } from './Settings/LinuxDependenciesStatus'
 import { ManualUpdateSettings } from './Settings/ManualUpdateSettings'
 import { MultiPurposeAppsSettings } from './Settings/MultiPurposeAppsSettings'
+import { MultiPurposeWebsitesSettings } from './Settings/MultiPurposeWebsitesSettings'
 import PauseTrackingSettings from './Settings/PauseTrackingSettings'
 import { PermissionsStatus } from './Settings/PermissionsStatus'
 import { ThemeSwitcher } from './Settings/ThemeSwitcher'
@@ -102,13 +103,16 @@ export const SettingsPage = memo(function SettingsPage({
         />
         <DistractionSoundSettings />
         <MultiPurposeAppsSettings />
+        <MultiPurposeWebsitesSettings />
         <ThemeSwitcher />
         <GoogleCalendarSettings />
         <ManualUpdateSettings />
         <DisableUsageAnalyticsSettings />
         <LogOutButtonSection user={user} logout={logout} onResetOnboarding={onResetOnboarding} />
         <AppInformation onShowPermissions={handleShowPermissions} />
-        {showPermissions && !isLoading && (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
+        {showPermissions &&
+          !isLoading &&
+          (isLinux ? <LinuxDependenciesStatus /> : <PermissionsStatus />)}
       </div>
     </div>
   )
