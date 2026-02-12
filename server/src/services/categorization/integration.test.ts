@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, mock, jest, test } from 'bun:t
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
-// Note: These tests perform live LLM API calls.
-// Ensure GOOGLE_GENERATIVE_AI_API_KEY is set in your environment.
+// Note: These tests use MOCKED LLM responses (jest.fn()) to avoid API costs and rate limits.
+// No real LLM API calls are made. Tests verify flow structure and logic only.
 
 describe('Integration Tests: Granular Work Detection System', () => {
   let mongoServer: MongoMemoryServer;
@@ -120,15 +120,12 @@ describe('Integration Tests: Granular Work Detection System', () => {
     test('should invalidate browser cache when goal changes', async () => {
       const { invalidateBrowserActivityCache } = await import('./history');
 
-      // Should call deleteMany with correct parameters
-      mockActiveWindowEventModel.deleteMany.mockResolvedValue({});
-
+      // Cache now invalidates via cachedForGoalId query mismatch
+      // No need to delete events - they remain for historical purposes
       await invalidateBrowserActivityCache(mockUserId);
 
-      expect(mockActiveWindowEventModel.deleteMany).toHaveBeenCalledWith({
-        userId: mockUserId,
-        type: 'browser',
-      });
+      // Verify deleteMany is NOT called (events are preserved for history)
+      expect(mockActiveWindowEventModel.deleteMany).not.toHaveBeenCalled();
     });
 
     test('should check history with goal-aware query', async () => {
