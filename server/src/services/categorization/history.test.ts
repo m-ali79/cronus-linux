@@ -81,7 +81,7 @@ describe('checkActivityHistory', () => {
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledTimes(1);
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: mockGoalId,
+      cachedForGoalId: mockGoalId,
       url: activeWindow.url,
     });
     // Assert that the category check was performed
@@ -293,7 +293,7 @@ describe('checkActivityHistory', () => {
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledTimes(1);
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: mockGoalId,
+      cachedForGoalId: mockGoalId,
       url: activeWindow.url,
     });
     // Ensure the category check was NOT performed
@@ -334,7 +334,7 @@ describe('checkActivityHistory', () => {
     expect(result).toBeNull();
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: mockGoalId,
+      cachedForGoalId: mockGoalId,
       url: activeWindow.url,
     });
     expect(CategoryModel.findOne).toHaveBeenCalledWith({
@@ -379,7 +379,7 @@ describe('checkActivityHistory', () => {
     expect(result?.categoryId).toBe(mockWorkCategoryId);
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: goalId,
+      cachedForGoalId: goalId,
       url: activeWindow.url,
     });
   });
@@ -420,7 +420,7 @@ describe('checkActivityHistory', () => {
     expect(result?.categoryId).toBe(mockWorkCategoryId);
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: goalId,
+      cachedForGoalId: goalId,
       ownerName: 'Google Chrome',
       title: 'Coding Session - VS Code',
     });
@@ -488,7 +488,7 @@ describe('checkActivityHistory', () => {
     expect(result).toBeNull();
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: null,
+      cachedForGoalId: null,
       url: 'https://example.com',
     });
   });
@@ -548,12 +548,12 @@ describe('checkActivityHistory', () => {
     // Assert
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: goalId1,
+      cachedForGoalId: goalId1,
       url: url,
     });
     expect(ActiveWindowEventModel.findOne).toHaveBeenCalledWith({
       userId: mockUserId,
-      goalId: goalId2,
+      cachedForGoalId: goalId2,
       url: url,
     });
     expect(result1?.categoryId).toBe(mockWorkCategoryId);
