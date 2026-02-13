@@ -15,7 +15,16 @@ export interface ActiveWindowEvent {
   timestamp: number;
   screenshotS3Url?: string | null;
   durationMs?: number;
-  captureReason?: 'app_switch' | 'periodic_backup' | 'system_sleep' | 'system_wake' | null;
+  captureReason?:
+    | 'app_switch'
+    | 'periodic_backup'
+    | 'browser_tab_switch'
+    | 'system_sleep'
+    | 'system_wake'
+    | 'system_lock'
+    | 'system_lock_initial'
+    | 'system_unlock'
+    | null;
   lastCategorizationAt?: Date;
   oldCategoryId?: string;
   oldCategoryReasoning?: string;

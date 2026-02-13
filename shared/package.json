@@ -3,40 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "files": [
-    "dist"
-  ],
   "main": "dist/types.js",
   "types": "dist/types.d.ts",
   "exports": {
-    ".": {
-      "development": {
-        "import": "./types.ts",
-        "types": "./types.ts"
-      },
-      "bun": {
-        "import": "./types.ts",
-        "types": "./types.ts"
-      },
-      "default": {
-        "import": "./dist/types.js",
-        "types": "./dist/types.d.ts"
-      }
-    },
-    "./*": {
-      "development": {
-        "import": "./*.ts",
-        "types": "./*.ts"
-      },
-      "bun": {
-        "import": "./*.ts",
-        "types": "./*.ts"
-      },
-      "default": {
-        "import": "./dist/*.js",
-        "types": "./dist/*.d.ts"
-      }
-    }
+    ".": "./dist/types.js",
+    "./types": "./dist/types.js",
+    "./categories": "./dist/categories.js",
+    "./distractionRules": "./dist/distractionRules.js"
   },
   "scripts": {
     "build": "tsc"

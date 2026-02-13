@@ -62,14 +62,13 @@
   "build": {
     "appId": "com.cronus.app",
     "productName": "Cronus",
+    "asar": false,
     "files": [
       "out/",
-      "node_modules/shared/dist/**/*",
       "node_modules/",
       "!build-assets/**/*",
       "package.json"
     ],
-    "afterPack": "./afterPack.js",
     "publish": [
       {
         "provider": "s3",

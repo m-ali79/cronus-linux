@@ -54,14 +54,14 @@ export interface ActiveWindowDetails {
   screenshotS3Url?: string | null;
   durationMs?: number;
   captureReason?:
-    | 'user'
-    | 'ai'
-    | 'reminder'
-    | 'schedule'
     | 'app_switch'
     | 'periodic_backup'
+    | 'browser_tab_switch'
     | 'system_sleep'
     | 'system_wake'
+    | 'system_lock'
+    | 'system_lock_initial'
+    | 'system_unlock'
     | null;
 }
 
