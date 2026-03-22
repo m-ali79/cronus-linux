@@ -1,7 +1,6 @@
-import { generateText, Output } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import {
-  type FinishReason,
   getCategorizationModel,
   getCategorizationModelId,
   getProviderOptions,
@@ -69,30 +68,38 @@ Generate a list of 3-5 personalized categories based on the user's goals.
   ];
 }
 
+function extractJson(text: string): string | null {
+  try { JSON.parse(text); return text; } catch {}
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (m) { try { JSON.parse(m[1]); return m[1]; } catch {} }
+  const j = text.match(/\{[\s\S]*\}/);
+  if (j) { try { JSON.parse(j[0]); return j[0]; } catch {} }
+  return null;
+}
+
 export async function getLLMCategorySuggestion(
   userProjectsAndGoals: string
 ): Promise<z.infer<typeof SuggestedCategoriesSchema> | null> {
   const promptInput = _buildLLMCategorySuggestionPromptInput(userProjectsAndGoals);
 
   try {
-    const result = await generateText({
+    const { text } = await generateText({
       model: getCategorizationModel(),
       temperature: 0,
-      messages: promptInput,
-      output: Output.object({
-        schema: SuggestedCategoriesSchema,
-        name: 'suggested_categories',
-      }),
+      messages: [
+        ...promptInput,
+        { role: 'system', content: 'Respond with ONLY valid JSON matching the schema. No markdown, no explanation, no code fences. Just the raw JSON object.' },
+      ],
       providerOptions: getProviderOptions(),
     });
 
-    const finishReason = result.finishReason as FinishReason | undefined;
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(`[LLM] suggested_categories non-stop finishReason="${finishReason}" model="${getCategorizationModelId()}"`);
+    const jsonStr = extractJson(text);
+    if (!jsonStr) {
+      console.warn(`[LLM] suggested_categories could not extract JSON model="${getCategorizationModelId()}": ${text.substring(0, 200)}`);
       return null;
     }
 
-    const parsed = SuggestedCategoriesSchema.safeParse(result.output);
+    const parsed = SuggestedCategoriesSchema.safeParse(JSON.parse(jsonStr));
     if (!parsed.success) {
       console.warn(`[LLM] suggested_categories schema mismatch model="${getCategorizationModelId()}":`, parsed.error.flatten());
       return null;

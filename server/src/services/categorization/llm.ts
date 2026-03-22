@@ -1,8 +1,7 @@
-import { generateText, Output } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
 import {
-  type FinishReason,
   getCategorizationModel,
   getCategorizationModelId,
   getProviderOptions,
@@ -13,8 +12,40 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Call generateText with structured output, validate finish reason + schema.
- * Returns parsed data or null on any failure.
+ * Extract JSON from LLM response text.
+ * Handles: plain JSON, markdown code blocks, prose with embedded JSON.
+ */
+function extractJson(text: string): string | null {
+  // Try direct parse first
+  try {
+    JSON.parse(text);
+    return text;
+  } catch {}
+
+  // Try extracting from markdown code blocks
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    try {
+      JSON.parse(codeBlockMatch[1]);
+      return codeBlockMatch[1];
+    } catch {}
+  }
+
+  // Try finding JSON object in text
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      JSON.parse(jsonMatch[0]);
+      return jsonMatch[0];
+    } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Generate structured output by requesting JSON in plain text.
+ * Works with ANY provider/model — no response_format, no tool calls.
  */
 async function generateStructured<T>(
   name: string,
@@ -23,22 +54,27 @@ async function generateStructured<T>(
   opts: { temperature?: number; maxOutputTokens?: number } = {}
 ): Promise<T | null> {
   try {
-    const result = await generateText({
+    const { text } = await generateText({
       model: getCategorizationModel(),
       temperature: opts.temperature ?? 0,
       maxOutputTokens: opts.maxOutputTokens,
-      messages,
-      output: Output.object({ schema, name }),
+      messages: [
+        ...messages,
+        {
+          role: 'system',
+          content: `Respond with ONLY valid JSON matching this schema. No markdown, no explanation, no code fences. Just the raw JSON object.`,
+        },
+      ],
       providerOptions: getProviderOptions(),
     });
 
-    const finishReason = result.finishReason as FinishReason | undefined;
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(`[LLM] ${name} non-stop finishReason="${finishReason}" raw="${result.rawFinishReason}" model="${getCategorizationModelId()}"`);
+    const jsonStr = extractJson(text);
+    if (!jsonStr) {
+      console.warn(`[LLM] ${name} could not extract JSON from response model="${getCategorizationModelId()}": ${text.substring(0, 200)}`);
       return null;
     }
 
-    const parsed = schema.safeParse(result.output);
+    const parsed = schema.safeParse(JSON.parse(jsonStr));
     if (!parsed.success) {
       console.warn(`[LLM] ${name} schema mismatch model="${getCategorizationModelId()}":`, parsed.error.flatten());
       return null;

@@ -1,11 +1,10 @@
-import { generateText, Output } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { Category as CategoryType } from '../../../../shared/types';
 import { CategoryModel } from '../../models/category';
 import { UserModel } from '../../models/user';
 import type { CalendarEvent } from '../suggestions/suggestionGenerationService';
 import {
-  type FinishReason,
   getCategorizationModel,
   getCategorizationModelId,
   getProviderOptions,
@@ -85,25 +84,33 @@ Respond with the category name and brief reasoning.`,
     },
   ];
 
+function extractJson(text: string): string | null {
+  try { JSON.parse(text); return text; } catch {}
+  const m = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (m) { try { JSON.parse(m[1]); return m[1]; } catch {} }
+  const j = text.match(/\{[\s\S]*\}/);
+  if (j) { try { JSON.parse(j[0]); return j[0]; } catch {} }
+  return null;
+}
+
   try {
-    const result = await generateText({
+    const { text } = await generateText({
       model: getCategorizationModel(),
       temperature: 0,
-      messages: promptInput,
-      output: Output.object({
-        schema: CalendarCategoryChoiceSchema,
-        name: 'calendar_category_choice',
-      }),
+      messages: [
+        ...promptInput,
+        { role: 'system', content: 'Respond with ONLY valid JSON matching the schema. No markdown, no explanation, no code fences. Just the raw JSON object.' },
+      ],
       providerOptions: getProviderOptions(),
     });
 
-    const finishReason = result.finishReason as FinishReason | undefined;
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(`[LLM] calendar_category_choice non-stop finishReason="${finishReason}" model="${getCategorizationModelId()}"`);
+    const jsonStr = extractJson(text);
+    if (!jsonStr) {
+      console.warn(`[LLM] calendar_category_choice could not extract JSON model="${getCategorizationModelId()}": ${text.substring(0, 200)}`);
       return null;
     }
 
-    const parsed = CalendarCategoryChoiceSchema.safeParse(result.output);
+    const parsed = CalendarCategoryChoiceSchema.safeParse(JSON.parse(jsonStr));
     if (!parsed.success) {
       console.warn(`[LLM] calendar_category_choice schema mismatch:`, parsed.error.flatten());
       return null;
