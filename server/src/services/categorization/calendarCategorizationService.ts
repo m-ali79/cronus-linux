@@ -93,27 +93,19 @@ Respond with the category name and brief reasoning.`,
       output: Output.object({
         schema: CalendarCategoryChoiceSchema,
         name: 'calendar_category_choice',
-        description: 'Chosen calendar category + brief reasoning. Max 15 words reasoning.',
       }),
       providerOptions: getProviderOptions(),
     });
 
-    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
-    const rawFinishReason: string | undefined = result.rawFinishReason;
-
+    const finishReason = result.finishReason as FinishReason | undefined;
     if (finishReason && finishReason !== 'stop') {
-      console.warn(
-        `[LLM] calendar_category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
-      );
+      console.warn(`[LLM] calendar_category_choice non-stop finishReason="${finishReason}" model="${getCategorizationModelId()}"`);
       return null;
     }
 
     const parsed = CalendarCategoryChoiceSchema.safeParse(result.output);
     if (!parsed.success) {
-      console.warn(
-        `[LLM] calendar_category_choice schema mismatch model="${getCategorizationModelId()}":`,
-        parsed.error.flatten()
-      );
+      console.warn(`[LLM] calendar_category_choice schema mismatch:`, parsed.error.flatten());
       return null;
     }
 

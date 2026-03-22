@@ -8,7 +8,77 @@ import {
   getProviderOptions,
 } from './llmProvider';
 
-// NEW Zod schema for LLM output: Expecting the name of one of the user's categories
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Call generateText with structured output, validate finish reason + schema.
+ * Returns parsed data or null on any failure.
+ */
+async function generateStructured<T>(
+  name: string,
+  schema: z.ZodType<T>,
+  messages: Array<{ role: 'system' | 'user'; content: string }>,
+  opts: { temperature?: number; maxOutputTokens?: number } = {}
+): Promise<T | null> {
+  try {
+    const result = await generateText({
+      model: getCategorizationModel(),
+      temperature: opts.temperature ?? 0,
+      maxOutputTokens: opts.maxOutputTokens,
+      messages,
+      output: Output.object({ schema, name }),
+      providerOptions: getProviderOptions(),
+    });
+
+    const finishReason = result.finishReason as FinishReason | undefined;
+    if (finishReason && finishReason !== 'stop') {
+      console.warn(`[LLM] ${name} non-stop finishReason="${finishReason}" raw="${result.rawFinishReason}" model="${getCategorizationModelId()}"`);
+      return null;
+    }
+
+    const parsed = schema.safeParse(result.output);
+    if (!parsed.success) {
+      console.warn(`[LLM] ${name} schema mismatch model="${getCategorizationModelId()}":`, parsed.error.flatten());
+      return null;
+    }
+
+    return parsed.data;
+  } catch (error) {
+    console.error(`[LLM] ${name} failed:`, error);
+    return null;
+  }
+}
+
+/**
+ * Call generateText for plain text output.
+ * Returns trimmed text or null on failure.
+ */
+async function generateText_simple(
+  name: string,
+  messages: Array<{ role: 'system' | 'user'; content: string }>,
+  opts: { temperature?: number; maxOutputTokens?: number } = {}
+): Promise<string | null> {
+  try {
+    const { text } = await generateText({
+      model: getCategorizationModel(),
+      temperature: opts.temperature ?? 0,
+      maxOutputTokens: opts.maxOutputTokens,
+      messages,
+      providerOptions: getProviderOptions(),
+    });
+    return text.trim() || null;
+  } catch (error) {
+    console.error(`[LLM] ${name} failed:`, error);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Category Choice (main categorization)
+// ---------------------------------------------------------------------------
+
 export interface CategoryChoice {
   chosenCategoryName: string;
   summary: string;
@@ -18,23 +88,9 @@ export interface CategoryChoice {
 
 const CategoryChoiceSchema = z.object({
   chosenCategoryName: z.string(),
-  summary: z
-    .string()
-    .describe(
-      'A short summary of what the user is seeing. DO NOT conjecture about what they might be doing. Max 10 words.'
-    ),
-  reasoning: z
-    .string()
-    .describe(
-      'Short explanation of why this category was chosen based on the content and users work/goals. Keep it very short and concise. Max 20 words.'
-    ),
-  confidence: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe(
-      'Confidence score (0-100) indicating how certain you are that this classification is correct. Be conservative - if unsure, give a lower score.'
-    ),
+  summary: z.string().describe('A short summary of what the user is seeing. DO NOT conjecture about what they might be doing. Max 10 words.'),
+  reasoning: z.string().describe('Short explanation of why this category was chosen based on the content and users work/goals. Keep it very short and concise. Max 20 words.'),
+  confidence: z.number().min(0).max(100).describe('Confidence score (0-100) indicating how certain you are that this classification is correct. Be conservative - if unsure, give a lower score.'),
 }) satisfies z.ZodType<CategoryChoice>;
 
 function _buildLLMCategoryChoicePromptInput(
@@ -130,216 +186,51 @@ Respond with the category name, your reasoning, and your confidence score.
   ];
 }
 
-// TODO: could add Retry Logic with Consistency Check
 export async function getLLMCategoryChoice(
   userProjectsAndGoals: string,
-  userCategories: Pick<CategoryType, 'name' | 'description'>[], // Pass only name and description for the prompt
-  activityDetails: Pick<
-    ActiveWindowDetails,
-    'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
-  >
+  userCategories: Pick<CategoryType, 'name' | 'description'>[],
+  activityDetails: Pick<ActiveWindowDetails, 'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'>
 ): Promise<z.infer<typeof CategoryChoiceSchema> | null> {
-  // Returns the chosen category NAME or null if error/no choice
-  const promptInput = _buildLLMCategoryChoicePromptInput(
-    userProjectsAndGoals,
-    userCategories,
-    activityDetails
-  );
-
-  try {
-    const result = await generateText({
-      model: getCategorizationModel(),
-      temperature: 0,
-      messages: promptInput,
-      output: Output.object({
-        schema: CategoryChoiceSchema,
-        name: 'category_choice',
-        description: "Chosen category + short summary + short reasoning. Don't invent facts.",
-      }),
-      providerOptions: getProviderOptions(),
-    });
-
-    const finishReason: FinishReason | undefined = result.finishReason as FinishReason | undefined;
-    const rawFinishReason: string | undefined = result.rawFinishReason;
-
-    if (finishReason && finishReason !== 'stop') {
-      console.warn(
-        `[LLM] category_choice non-stop finishReason="${finishReason}" raw="${rawFinishReason}" model="${getCategorizationModelId()}"`
-      );
-      return null;
-    }
-
-    const parsed = CategoryChoiceSchema.safeParse(result.output);
-    if (!parsed.success) {
-      console.warn(
-        `[LLM] category_choice schema mismatch model="${getCategorizationModelId()}":`,
-        parsed.error.flatten()
-      );
-      return null;
-    }
-
-    return parsed.data;
-  } catch (error) {
-    console.error('Error getting LLM category choice:', error);
-    return null;
-  }
+  const promptInput = _buildLLMCategoryChoicePromptInput(userProjectsAndGoals, userCategories, activityDetails);
+  return generateStructured('category_choice', CategoryChoiceSchema, promptInput, { temperature: 0 });
 }
 
-// fallback for title
-
 export async function getLLMSummaryForBlock(
-  activityDetails: Pick<
-    ActiveWindowDetails,
-    'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
-  >
+  activityDetails: Pick<ActiveWindowDetails, 'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'>
 ): Promise<string | null> {
-  // You can use a similar prompt structure as getLLMCategoryChoice, but focused on summarization
   const prompt = [
-    {
-      role: 'system' as const,
-      content: `You are an AI assistant that summarizes user activity blocks for productivity tracking. 
-Provide a concise, one-line summary of what the user was likely doing in this time block, based on the app, window title, content, and any available context.`,
-    },
-    {
-      role: 'user' as const,
-      content: `
-APP: ${activityDetails.ownerName}
-TITLE: ${activityDetails.title || ''}
-URL: ${activityDetails.url || ''}
-CONTENT: ${activityDetails.content ? activityDetails.content.slice(0, 1000) : ''}
-TYPE: ${activityDetails.type}
-BROWSER: ${activityDetails.browser || ''}
-`,
-    },
+    { role: 'system' as const, content: 'You are an AI assistant that summarizes user activity blocks for productivity tracking. Provide a concise, one-line summary of what the user was likely doing in this time block, based on the app, window title, content, and any available context.' },
+    { role: 'user' as const, content: `APP: ${activityDetails.ownerName}\nTITLE: ${activityDetails.title || ''}\nURL: ${activityDetails.url || ''}\nCONTENT: ${activityDetails.content ? activityDetails.content.slice(0, 1000) : ''}\nTYPE: ${activityDetails.type}\nBROWSER: ${activityDetails.browser || ''}` },
   ];
-
-  try {
-    const { text } = await generateText({
-      model: getCategorizationModel(),
-      messages: prompt,
-      maxOutputTokens: 50,
-      temperature: 0.3,
-      providerOptions: getProviderOptions(),
-    });
-    return text.trim() || null;
-  } catch (error) {
-    console.error('Error getting LLM summary for block:', error);
-    return null;
-  }
+  return generateText_simple('block_summary', prompt, { temperature: 0.3, maxOutputTokens: 50 });
 }
 
 export async function isTitleInformative(title: string): Promise<boolean> {
   const prompt = [
-    {
-      role: 'system' as const,
-      content:
-        'You are an AI assistant that evaluates if a window or activity title is informative and specific about what the user was doing. Answer only "yes" or "no". Only rendering the name of an application is not informative.',
-    },
-    {
-      role: 'user' as const,
-      content: `Title: "${title}"`,
-    },
+    { role: 'system' as const, content: 'You are an AI assistant that evaluates if a window or activity title is informative and specific about what the user was doing. Answer only "yes" or "no". Only rendering the name of an application is not informative.' },
+    { role: 'user' as const, content: `Title: "${title}"` },
   ];
-
-  try {
-    const { text } = await generateText({
-      model: getCategorizationModel(),
-      messages: prompt,
-      maxOutputTokens: 3,
-      temperature: 0,
-      providerOptions: getProviderOptions(),
-    });
-    const answer = text.trim().toLowerCase();
-    const result = answer?.startsWith('yes') ?? false;
-    return result;
-  } catch (error) {
-    console.debug(
-      `[LLM] isTitleInformative failed model="${getCategorizationModelId()}" title="${title}"`,
-      error
-    );
-    return false;
-  }
+  const answer = await generateText_simple('isTitleInformative', prompt, { temperature: 0, maxOutputTokens: 3 });
+  return answer?.toLowerCase().startsWith('yes') ?? false;
 }
 
 export async function generateActivitySummary(activityData: any): Promise<string> {
   const prompt = [
-    {
-      role: 'system' as const,
-      content: `You are an AI assistant that summarizes user activity blocks for productivity tracking. 
-      Provide a concise, short title (max 5-8 words) of what the user was doing, based on the app, window title, and context. You can include details about the content that you have about the activity. Be detailed, yet concise. The goal is to represent the activity in a way that is easy to understand and use for the user and make it easy for them to understand what they did during that activity block. It should not be just one or two words.`,
-    },
-    {
-      role: 'user' as const,
-      content: `ACTIVITY DATA: ${JSON.stringify(activityData)}`,
-    },
+    { role: 'system' as const, content: 'You are an AI assistant that summarizes user activity blocks for productivity tracking. Provide a concise, short title (max 5-8 words) of what the user was doing, based on the app, window title, and context. Be detailed, yet concise. It should not be just one or two words.' },
+    { role: 'user' as const, content: `ACTIVITY DATA: ${JSON.stringify(activityData)}` },
   ];
-
-  try {
-    const { text } = await generateText({
-      model: getCategorizationModel(),
-      messages: prompt,
-      maxOutputTokens: 50,
-      temperature: 0.3,
-      providerOptions: getProviderOptions(),
-    });
-    const generatedTitle = text.trim();
-    return generatedTitle;
-  } catch (error) {
-    console.error(
-      `[LLM] generateActivitySummary failed model="${getCategorizationModelId()}"`,
-      {
-        ownerName: activityData?.ownerName,
-        title: activityData?.title,
-        type: activityData?.type,
-      },
-      error
-    );
-    return '';
-  }
+  return (await generateText_simple('activity_summary', prompt, { temperature: 0.3, maxOutputTokens: 50 })) ?? '';
 }
 
-/**
- * Suggest a single emoji for a category using an LLM.
- * @param name The category name
- * @param description The category description (optional)
- * @returns The suggested emoji as a string, or null if failed
- */
-export async function getEmojiForCategory(
-  name: string,
-  description?: string
-): Promise<string | null> {
+export async function getEmojiForCategory(name: string, description?: string): Promise<string | null> {
   const prompt = [
-    {
-      role: 'system' as const,
-      content: `You are an AI assistant that suggests a single emoji for a category. Respond with only the emoji, no text.`,
-    },
-    {
-      role: 'user' as const,
-      content: `Suggest a single emoji (just the emoji, no text) for a category with the following details.\nName: ${name}\nDescription: ${description || ''}`,
-    },
+    { role: 'system' as const, content: 'You are an AI assistant that suggests a single emoji for a category. Respond with only the emoji, no text.' },
+    { role: 'user' as const, content: `Suggest a single emoji (just the emoji, no text) for a category with the following details.\nName: ${name}\nDescription: ${description || ''}` },
   ];
-  try {
-    const { text } = await generateText({
-      model: getCategorizationModel(),
-      messages: prompt,
-      maxOutputTokens: 10,
-      temperature: 0,
-      providerOptions: getProviderOptions(),
-    });
-    const emoji = text.trim() || null;
-    // More robust validation: check if it's a single emoji character or sequence
-    // This regex broadly matches various unicode emoji patterns.
-    const emojiRegex =
-      /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
-    if (emoji && emojiRegex.test(emoji) && emoji.length <= 10) {
-      // Keep a length check, but regex is primary
-      return emoji;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error getting emoji for category:', error);
-    return null;
-  }
+  const emoji = await generateText_simple('emoji_suggestion', prompt, { temperature: 0, maxOutputTokens: 10 });
+  if (!emoji) return null;
+  const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+  return emojiRegex.test(emoji) && emoji.length <= 10 ? emoji : null;
 }
 
 // Goal analysis types
@@ -439,33 +330,5 @@ export async function analyzeGoalWithAI(
   conversationHistory: Array<{ role: 'user' | 'ai'; content: string }>
 ): Promise<GoalAnalysisResult | null> {
   const prompt = _buildGoalAnalysisPrompt(currentGoal, conversationHistory);
-
-  try {
-    const result = await generateText({
-      model: getCategorizationModel(),
-      temperature: 0.3,
-      messages: prompt,
-      output: Output.object({
-        schema: GoalAnalysisSchema,
-        name: 'goal_analysis',
-        description:
-          'Analysis of user goal with confidence score and clarifying question or refined goal.',
-      }),
-      providerOptions: getProviderOptions(),
-    });
-
-    // Only log the JSON output
-    console.log(JSON.stringify(result.output, null, 2));
-
-    const parsed = GoalAnalysisSchema.safeParse(result.output);
-    if (!parsed.success) {
-      console.warn('[LLM] goal_analysis schema mismatch:', parsed.error.flatten());
-      return null;
-    }
-
-    return parsed.data;
-  } catch (error) {
-    console.error('Error analyzing goal with AI:', error);
-    return null;
-  }
+  return generateStructured('goal_analysis', GoalAnalysisSchema, prompt, { temperature: 0.3 });
 }
