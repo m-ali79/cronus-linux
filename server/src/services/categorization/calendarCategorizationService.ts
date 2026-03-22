@@ -99,7 +99,7 @@ function extractJson(text: string): string | null {
       temperature: 0,
       messages: [
         ...promptInput,
-        { role: 'system', content: 'Respond with ONLY valid JSON matching the schema. No markdown, no explanation, no code fences. Just the raw JSON object.' },
+        { role: 'system', content: `Respond with ONLY a valid JSON object:\n{"chosenCategoryName": "string", "reasoning": "string (max 15 words)"}\n\nNo markdown, no code fences, no explanation. Just the raw JSON object.` },
       ],
       providerOptions: getProviderOptions(),
     });

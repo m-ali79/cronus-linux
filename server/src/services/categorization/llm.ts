@@ -54,6 +54,15 @@ async function generateStructured<T>(
   opts: { temperature?: number; maxOutputTokens?: number } = {}
 ): Promise<T | null> {
   try {
+    // Extract schema field descriptions for the prompt
+    const schemaShape = (schema as any)._def?.shape?.() ?? {};
+    const fieldDescriptions = Object.entries(schemaShape).map(([key, val]: [string, any]) => {
+      const desc = val._def?.description ?? val._def?.innerType?._def?.description ?? '';
+      const typeName = val._def?.typeName ?? val._def?.innerType?._def?.typeName ?? 'string';
+      const type = typeName === 'ZodString' ? 'string' : typeName === 'ZodNumber' ? 'number' : typeName === 'ZodBoolean' ? 'boolean' : 'any';
+      return desc ? `"${key}" (${type}) - ${desc}` : `"${key}" (${type})`;
+    }).join('\n  ');
+
     const { text } = await generateText({
       model: getCategorizationModel(),
       temperature: opts.temperature ?? 0,
@@ -62,7 +71,7 @@ async function generateStructured<T>(
         ...messages,
         {
           role: 'system',
-          content: `Respond with ONLY valid JSON matching this schema. No markdown, no explanation, no code fences. Just the raw JSON object.`,
+          content: `Respond with ONLY a valid JSON object with EXACTLY these fields:\n  ${fieldDescriptions}\n\nNo markdown, no code fences, no explanation. Just the raw JSON object.`,
         },
       ],
       providerOptions: getProviderOptions(),

@@ -88,7 +88,7 @@ export async function getLLMCategorySuggestion(
       temperature: 0,
       messages: [
         ...promptInput,
-        { role: 'system', content: 'Respond with ONLY valid JSON matching the schema. No markdown, no explanation, no code fences. Just the raw JSON object.' },
+        { role: 'system', content: `Respond with ONLY a valid JSON object:\n{"categories": [{"name": "string", "description": "string", "color": "#HEX", "isProductive": true/false, "emoji": "emoji"}]}\n\nNo markdown, no code fences, no explanation. Just the raw JSON object.` },
       ],
       providerOptions: getProviderOptions(),
     });
