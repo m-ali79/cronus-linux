@@ -5,6 +5,30 @@ import { useToast } from '../hooks/use-toast'
 import { exchangeGoogleCodeForTokens } from '../lib/auth'
 import { trpc } from '../utils/trpc'
 
+const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true'
+
+const FAKE_TOKEN = 'auth-disabled-fake-token'
+const FAKE_USER_ID = '69778eb96f7e7ac62aa1aceb'
+const FAKE_USER: User = {
+  id: FAKE_USER_ID,
+  email: 'alihelium369@gmail.com',
+  name: 'Muhammad Ali',
+  picture: '',
+  hasSubscription: false,
+  isWaitlisted: false,
+  hasCompletedOnboarding: true,
+  isInEU: false,
+  electronAppSettings: {
+    calendarZoomLevel: 172,
+    theme: 'dark',
+    playDistractionSound: true,
+    distractionSoundInterval: 5,
+    showDistractionNotifications: true,
+    distractionNotificationInterval: 5,
+    optedOutOfPosthogTracking: true
+  }
+}
+
 interface AuthContextType {
   user: User | null
   token: string | null
@@ -22,8 +46,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element => {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('accessToken'))
+  const [user, setUser] = useState<User | null>(() => {
+    if (AUTH_DISABLED) {
+      console.warn('🔓 AUTH DISABLED - Using fake user')
+      return FAKE_USER
+    }
+    return null
+  })
+  const [token, setToken] = useState<string | null>(() => {
+    if (AUTH_DISABLED) {
+      console.warn('🔓 AUTH DISABLED - Using fake token')
+      return FAKE_TOKEN
+    }
+    return localStorage.getItem('accessToken')
+  })
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const posthog = usePostHog()
@@ -40,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
   } = trpc.auth.getUser.useQuery(
     { token: token! },
     {
-      enabled: !!token && !user,
+      enabled: !!token && !user && !AUTH_DISABLED,
       retry: 1,
       onSuccess: (data) => {
         if (token) {
@@ -80,6 +116,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
   )
 
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      setIsLoading(false)
+      localStorage.setItem('hasCompletedOnboarding', 'true')
+      localStorage.setItem('accessToken', 'fake-disabled-auth-token')
+      return
+    }
     const storedToken = localStorage.getItem('accessToken')
     if (!storedToken) {
       setIsLoading(false)

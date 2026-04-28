@@ -36,13 +36,13 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     name: 'OpenRouter',
     baseURL: 'https://openrouter.ai/api/v1',
     apiKeyEnvVar: 'OPENROUTER_API_KEY',
-    defaultModel: 'arcee-ai/trinity-mini:free',
+    defaultModel: 'arcee-ai/trinity-large-preview:free',
   },
   opencode: {
     name: 'OpenCode Zen',
-    baseURL: 'https://opencode.ai/zen/v1',
+    baseURL: 'http://0.0.0.0:21312',
     apiKeyEnvVar: 'OPENCODE_API_KEY',
-    defaultModel: 'big-pickle',
+    defaultModel: 'gpt-5-nano',
   },
   openai: {
     name: 'OpenAI',

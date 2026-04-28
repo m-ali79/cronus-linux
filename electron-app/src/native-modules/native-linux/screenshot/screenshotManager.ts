@@ -177,7 +177,7 @@ export class ScreenshotManager {
       console.log(`[OCR] Starting OCR for ${imagePath}`)
       const { stdout } = await execFileAsync(
         'tesseract',
-        [imagePath, 'stdout', '-l', this.settings.ocrLanguage, '--psm', '6', 'quiet'],
+        [imagePath, 'stdout', '-l', this.settings.ocrLanguage, '--psm', '6'],
         { timeout: OCR_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024, env }
       )
 

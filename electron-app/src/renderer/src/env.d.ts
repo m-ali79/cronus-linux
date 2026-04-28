@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_AUTH_DISABLED: string
+}
+
 declare module '*.png' {
   const value: string
   export default value

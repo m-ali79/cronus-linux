@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Cronus
+Comment=Activity tracking desktop app
+Exec=/home/muhammad-ali/programming/learning/cronus/electron-app/dist/linux-unpacked/cronus
+Icon=cronus
+Terminal=false
+Categories=Utility;Monitor;
+StartupNotify=true
+X-GNOME-Autostart-enabled=true

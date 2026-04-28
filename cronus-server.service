@@ -1,0 +1,14 @@
+[Unit]
+Description=Cronus Server - Activity tracking backend API
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/muhammad-ali/programming/learning/cronus/server
+ExecStart=/home/muhammad-ali/.bun/bin/bun run /home/muhammad-ali/programming/learning/cronus/server/dist/index.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

@@ -112,6 +112,10 @@
       {
         "from": "native-host/",
         "to": "native-host/"
+      },
+      {
+        "from": "public/sounds/",
+        "to": "sounds/"
       }
     ],
     "linux": {

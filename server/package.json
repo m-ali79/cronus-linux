@@ -5,8 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "build": "tsc",
-    "start": "bun run ./dist/index.js",
+    "build": "tsc --noEmitOnError false",
+    "start": "NODE_ENV=production bun ./dist/index.js",
     "tsc:build": "tsc --outDir ./dist_tsc",
     "node:start": "node ./dist_tsc/index.js",
     "1--------------------------------": "--------------------------------",

@@ -3,7 +3,15 @@ import jwt from 'jsonwebtoken';
 import { UserModel } from '../models/user';
 import { extractClientVersion } from './versionUtils';
 
+const AUTH_DISABLED = process.env.DISABLE_AUTH === 'true';
+const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID || '69778eb96f7e7ac62aa1aceb';
+
 function verifyToken(token: string): { userId: string } {
+  if (AUTH_DISABLED) {
+    console.warn('🔓 AUTH DISABLED - Bypassing token verification, using default user');
+    return { userId: DEFAULT_USER_ID };
+  }
+
   try {
     // console.log('Server time check for JWT verification:', new Date().toISOString());
     // console.log('Token:', token);
@@ -47,6 +55,11 @@ function verifyToken(token: string): { userId: string } {
 
 // Helper function to safely verify token and convert errors to TRPCError
 export function safeVerifyToken(token: string): { userId: string } {
+  if (AUTH_DISABLED) {
+    console.warn('🔓 AUTH DISABLED - Bypassing safeVerifyToken, using default user');
+    return { userId: DEFAULT_USER_ID };
+  }
+
   try {
     return verifyToken(token);
   } catch (error) {
@@ -132,6 +145,13 @@ export function safeVerifyTokenWithVersionTracking(
   token: string,
   userAgent?: string
 ): { userId: string } {
+  if (AUTH_DISABLED) {
+    console.warn(
+      '🔓 AUTH DISABLED - Bypassing safeVerifyTokenWithVersionTracking, using default user'
+    );
+    return { userId: DEFAULT_USER_ID };
+  }
+
   const result = safeVerifyToken(token);
 
   // Track version asynchronously - don't block the request

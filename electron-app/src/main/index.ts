@@ -108,7 +108,7 @@ function App() {
     setupCsp()
 
     mainWindow = createMainWindow(getUrlToHandleOnReady, (url) => handleAppUrl(url, mainWindow))
-    initializeAutoUpdater(mainWindow)
+    // initializeAutoUpdater(mainWindow) // Disabled - no auto updates
     floatingWindow = createFloatingWindow(() => mainWindow)
 
     mainWindow.on('closed', () => {
